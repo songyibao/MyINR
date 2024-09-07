@@ -1,0 +1,8 @@
+[train_config]
+data_path = "data/processed/"
+batch_size = 32
+hidden_features = 256
+hidden_layers = 3
+learning_rate = 0.0001
+num_epochs = 100
+model_save_path = "res/model/inr_model.pth"

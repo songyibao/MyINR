@@ -1,0 +1,65 @@
+[model]
+hidden_features = 256
+hidden_layers = 4
+in_features = 2
+# out_features = 3 # 此项应该在最后一层设置
+
+[[model.layers]]
+type = "FourierReparamLinear"
+out_features = 256
+
+
+[[model.layers]]
+type = "PosEncodingNeRF"
+sidelength = 256
+
+[[model.layers]]
+type = "SIREN"
+out_features = 256
+omega_0 = 30
+
+[[model.layers]]
+type = "Linear"
+out_features = 256
+
+[[model.layers]]
+type = "Conv1d"
+out_channels = 128
+kernel_size = 3
+stride = 1
+padding = 1
+
+[[model.layers]]
+type = "Conv2d"
+out_channels = 128
+kernel_size = 3
+stride = 1
+padding = 1
+
+[[model.layers]]
+type = "ReLU"
+out_features = 128
+
+[[model.layers]]
+type = "SIREN"
+out_features = 256
+
+[[model.layers]]
+type = "LeakyReLU"
+negative_slope = 0.1
+out_features = 128
+
+[[model.layers]]
+type = "SynthesisLayer"
+out_features = 40
+kernel_size = 3
+
+[[model.layers]]
+type = "SynthesisResidualLayer"
+out_features = 40
+kernel_size = 3
+
+[[model.layers]]
+type = "SineLayer"
+out_features = 256
+
