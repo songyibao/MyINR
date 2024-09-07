@@ -1,12 +1,10 @@
-import sys
-
 import numpy as np
 import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 
 from src.models.loss import LossRegistry
-from configs.config import TrainConfig
+from src.configs.config import TrainConfig
 from tqdm import tqdm
 
 from src.utils.device import global_device

@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 from PIL import Image
-
-from configs.config import GlobalConfig, ModelConfig, TrainConfig, SaveConfig
+import time
+from src.configs.config import GlobalConfig, ModelConfig, TrainConfig, SaveConfig
 from src.decompress import decompress_and_save
 from src.models.inputs import get_coordinate_grid, positional_encoding
 from src.models.model1 import ConfigurableINRModel
@@ -52,6 +52,7 @@ def test(model_config:ModelConfig, train_config:TrainConfig, save_config:SaveCon
     # 保存生成的图像到wandb
     logger.info("保存生成的图像到wandb")
 
+
 device = global_device
 global_config = GlobalConfig()
 # logger.info(f'{global_config}')
@@ -66,6 +67,7 @@ global_save_config = global_config.save_config
 #         if index != num_layers-1:
 #             layer_config['out_features'] = i
 #     logger.info(global_config.config)
+
 test(global_model_config, global_train_config, global_save_config)
 
 

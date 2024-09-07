@@ -16,9 +16,8 @@ from torchvision.transforms.functional import to_pil_image
 
 from src.models.inputs import get_coordinate_grid, positional_encoding
 from src.models.model1 import ConfigurableINRModel
-from configs.config import GlobalConfig
-from src.utils.evaluate import get_original_image_numpy, evaluate_tensor, calculate_bpp, get_original_image_tensor, \
-    evaluate_ndarray
+from src.configs.config import GlobalConfig
+from src.utils.evaluate import get_original_image_numpy, calculate_bpp, evaluate_ndarray
 from src.utils.log import logger
 import matplotlib.pyplot as plt
 
