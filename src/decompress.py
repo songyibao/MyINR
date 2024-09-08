@@ -6,6 +6,9 @@ import toml
 import torch
 import platform
 
+from torchvision.transforms import v2
+from torchvision.transforms.v2 import ToTensor
+
 from src.utils.device import global_device
 
 os_type = platform.system()
@@ -17,7 +20,8 @@ from torchvision.transforms.functional import to_pil_image
 from src.models.inputs import get_coordinate_grid, positional_encoding
 from src.models.model1 import ConfigurableINRModel
 from src.configs.config import GlobalConfig
-from src.utils.evaluate import get_original_image_numpy, calculate_bpp, evaluate_ndarray
+from src.utils.evaluate import get_original_image_numpy, calculate_bpp, evaluate_ndarray, evaluate_tensor, \
+    evaluate_tensor_h_w_3
 from src.utils.log import logger
 import matplotlib.pyplot as plt
 
@@ -75,12 +79,20 @@ def decompress_and_save(inr_model, model_input, config: GlobalConfig, base_outpu
     # 计算模型输出
     logger.info("计算模型输出")
     with torch.no_grad():
+        # [h * w, 3] -> [h, w, 3]
         pixels = inr_model(model_input).view(shape[0], shape[1], 3)
 
     # 计算评估指标
     logger.info("计算原图像和重建图像psnr和ssim")
 
-    result=evaluate_ndarray(original_image, np.array(pixels*255).astype(np.uint8))
+    # Converts a PIL Image or numpy. ndarray (H x W x C) in the range [0, 255] to a torch. FloatTensor of shape (C x H x W) in the range [0.0, 1.0]
+    trans_fun = v2.Compose([v2.ToImage(), v2.ToDtype(torch. float32, scale=True)])
+    # [H,W,3] -> [3,H,W]
+    x = trans_fun(original_image)
+    # [3,H,W] -> [H,W,3]
+    x = x.permute(1,2,0)
+
+    result=evaluate_tensor_h_w_3(x, torch.clamp(pixels, 0, 1))
     # 计算bpp
     logger.info("计算 bpp")
     bpp = calculate_bpp(torch.tensor(original_image),inr_model)
@@ -151,6 +163,7 @@ if os.getenv('MODE',"TRAIN").upper()=="SINGLE":
     coords = positional_encoding(coords)
     model = ConfigurableINRModel(model_config.config,in_features=coords.shape[-1])
     device = global_device
-    model.load_state_dict(torch.load(save_config.model_save_path,map_location=device))
+    model_path = os.path.join(save_config.model_save_path,save_config.model_name)
+    model.load_state_dict(torch.load(model_path.__str__(),map_location=device))
     decompress_and_save(inr_model=model, model_input=coords, base_output_path=save_config.base_output_path, config=global_config)
 

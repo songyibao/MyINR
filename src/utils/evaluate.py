@@ -167,16 +167,10 @@ def calculate_psnr_tensor(original_image: torch.Tensor, compressed_image: torch.
     返回:
         float: PSNR 值，单位为 dB
     """
-    # 如果original_image和compressed_image的device不同，就抛出一个错误
-    if original_image.device != compressed_image.device:
-        raise ValueError("original_image and compressed_image must be on the same device")
-    mse = torch.mean((original_image - compressed_image) ** 2)
-    if mse == 0:  # 图像完全相同
-        return float('inf')
-
-    max_pixel_value = 255.0
-    res = 20 * torch.log10(max_pixel_value / torch.sqrt(mse))
-    return res.item()
+    x = original_image.permute(2, 0, 1).unsqueeze(0)
+    y = compressed_image.permute(2, 0, 1).unsqueeze(0)
+    psnr_index = piq.psnr(x, y, data_range=1.,reduction='none')
+    return psnr_index.item()
 
 
 def calculate_msssim_ndarray(original_image: np.ndarray, compressed_image: np.ndarray, is_rgb: bool = True) -> float:
@@ -266,24 +260,34 @@ def evaluate_tensor(original_image: torch.Tensor, compressed_image: torch.Tensor
         dict: 包含 PSNR 和 MS-SSIM 值的字典
     """
     # 判断源图像值的范围是否在 [0, 1] 之间,如果是,转化为 [0, 255] 之间的整数值,否则判断值是否为 [0, 255] 之间的整数值
-    if original_image.min() >= 0 and original_image.max() <= 1:
-        original_image = (original_image * 255).to(torch.uint8).float()
-    else:
-        raise ValueError("original_image values must be in the range [0, 1]")
-
-    # 判断压缩图像值的范围是否在 [0, 1] 之间,如果是,转化为 [0, 255] 之间的整数值,否则判断值是否为 [0, 255] 之间的整数值
-    if compressed_image.min() >= 0 and compressed_image.max() <= 1:
-        compressed_image = (compressed_image * 255).to(torch.uint8).float()
-    else:
-        return {'PSNR': None, 'MS-SSIM': None}
+    # if original_image.min() >= 0 and original_image.max() <= 1:
+    #     original_image = (original_image * 255).to(torch.uint8).float()
+    # else:
+    #     raise ValueError("original_image values must be in the range [0, 1]")
+    #
+    # # 判断压缩图像值的范围是否在 [0, 1] 之间,如果是,转化为 [0, 255] 之间的整数值,否则判断值是否为 [0, 255] 之间的整数值
+    # if compressed_image.min() >= 0 and compressed_image.max() <= 1:
+    #     compressed_image = (compressed_image * 255).to(torch.uint8).float()
+    # else:
+    #     return {'PSNR': None, 'MS-SSIM': None}
 
     # 输出两张图像的数值范围
     # print(f"original_image min: {original_image.min()}, max: {original_image.max()}")
     # print(f"compressed_image min: {compressed_image.min()}, max: {compressed_image.max()}")
     psnr = calculate_psnr_tensor(original_image, compressed_image)
-    msssim = calculate_msssim_tensor(original_image, compressed_image)
+    msssim = calculate_msssim_tensor(original_image, compressed_image,data_range=1.)
 
     return {
         'PSNR': f'{psnr:.4f}',  # 固定保留4位小数
         'MS-SSIM': f'{msssim:.6f}'  # 固定保留6位小数
+    }
+def evaluate_tensor_h_w_3(original_image: torch.Tensor, compressed_image: torch.Tensor) -> dict:
+    # 转换成 [1,C,H,W]
+    x = original_image.permute(2, 0, 1).unsqueeze(0)
+    y = compressed_image.permute(2, 0, 1).unsqueeze(0)
+    psnr = piq.psnr(x, y, data_range=1.)
+    msssim = piq.multi_scale_ssim(x, y, data_range=1.)
+    return {
+        'PSNR': f'{psnr:.2f}',  # 固定保留4位小数
+        'MS-SSIM': f'{msssim:.2f}'  # 固定保留6位小数
     }

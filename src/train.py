@@ -8,7 +8,7 @@ from src.configs.config import TrainConfig
 from tqdm import tqdm
 
 from src.utils.device import global_device
-from src.utils.evaluate import evaluate_tensor
+from src.utils.evaluate import evaluate_tensor, evaluate_tensor_h_w_3
 from src.utils.log import logger
 
 def train_inr(model_input, target_image, model,  config: TrainConfig,device=global_device,):
@@ -34,7 +34,7 @@ def train_inr(model_input, target_image, model,  config: TrainConfig,device=glob
     # 直接使用均方误差损失
     # criterion = nn.MSELoss()
 
-    # 使用 tqdm 包裹训练循环
+    last_res = None
     with tqdm(total=num_epochs, desc=f"Training:") as pbar:
         for epoch in range(num_epochs):
             optimizer.zero_grad()
@@ -43,20 +43,10 @@ def train_inr(model_input, target_image, model,  config: TrainConfig,device=glob
             output = model(model_input)
 
             # 将模型输出 reshape 成图像的尺寸
-            output_image = output.view(target_image.shape)  # h 是高度, w 是宽度
-
-            # 转换为 VGG 感知损失所需的格式（暂时不用VGG感知损失）
-            # output_image = output_image.permute(2, 0, 1).unsqueeze(0)  # [3, h, w] 转换为 [1, 3, h, w]
-            # target_image = target_image.permute(2, 0, 1).unsqueeze(0)  # [3, h, w] 转换为 [1, 3, h, w]
-            # output_image = output_image.unsqueeze(0).permute(0, 3, 1, 2)
-            # target_image = target_image.unsqueeze(0).permute(0, 3, 1, 2)
-
-            # output_image = output_image
-            # target_image = target_image
+            output_image = output.view(target_image.shape)
 
             # 计算 psnr
-            evaluate_res = evaluate_tensor(target_image,torch.clamp(output_image,0,1))
-
+            evaluate_res = evaluate_tensor_h_w_3(target_image,torch.clamp(output_image,0,1))
             # 计算损失
             loss = criterion(output_image, target_image)
             loss.backward()
@@ -95,7 +85,10 @@ def train_inr(model_input, target_image, model,  config: TrainConfig,device=glob
                 "Max Patience": f'{max_patience_counter:>4}'
             }
             update_value.update(evaluate_res)
+            last_res = update_value
             # Update progress bar
             pbar.set_postfix(update_value)
             pbar.update()
-        return model
+
+    logger.info(f'训练完成,最后结果{last_res}')
+    return model
