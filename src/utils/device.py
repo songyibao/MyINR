@@ -21,16 +21,16 @@ def get_best_gpu():
     least_occupied_gpu = get_least_utilized_gpu()
     return torch.device(f'cuda:{least_occupied_gpu}')
 
+def get_best_device():
+    os_type = platform.system()
+    if os_type == 'Windows':
+        import torch_directml
+        return torch_directml.device() if torch_directml.is_available() else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    else:
+        return get_best_gpu() if torch.cuda.is_available() else torch.device('cpu')
 
-os_type = platform.system()
-if os_type == 'Windows':
-    import torch_directml
 
-global_device = None
-if os_type == 'Windows':
-    global_device = torch_directml.device() if torch_directml.is_available() else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-else:
-    global_device = get_best_gpu() if torch.cuda.is_available() else torch.device('cpu')
+global_device = get_best_device()
 
 
 

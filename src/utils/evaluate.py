@@ -1,9 +1,9 @@
 from typing import Dict
-
+import piq
 import numpy as np
 import torch
 from PIL import Image
-from pytorch_msssim import ms_ssim
+from pytorch_msssim import ssim, ms_ssim, SSIM, MS_SSIM
 from torch._C import dtype
 import imageio.v3 as iio
 
@@ -55,7 +55,7 @@ def model_size_in_bits(model):
                for tensors in (model.parameters(), model.buffers()))
 
 
-def calculate_bpp(image:torch.Tensor, model:torch.nn.Module):
+def calculate_bpp(image: torch.Tensor, model: torch.nn.Module):
     """Computes size in bits per pixel of model.
 
     Args:
@@ -104,7 +104,7 @@ def mean(list_):
     return np.mean(list_)
 
 
-def get_original_image_numpy(original_image_path:str)->np.ndarray:
+def get_original_image_numpy(original_image_path: str) -> np.ndarray:
     """
     从文件路径加载原始图像
 
@@ -115,7 +115,9 @@ def get_original_image_numpy(original_image_path:str)->np.ndarray:
         np.ndarray: 原始图像的 numpy 数组 [h, w, c]
     """
     return iio.imread(original_image_path)
-def get_original_image_tensor(original_image_path:str)->torch.Tensor:
+
+
+def get_original_image_tensor(original_image_path: str) -> torch.Tensor:
     """
     从文件路径加载原始图像
 
@@ -128,6 +130,7 @@ def get_original_image_tensor(original_image_path:str)->torch.Tensor:
     original_image = torch.tensor(iio.imread(original_image_path))
     return original_image
 
+
 def calculate_psnr_ndarray(original_image: np.ndarray, compressed_image: np.ndarray) -> float:
     """
     计算峰值信噪比 (PSNR)
@@ -139,13 +142,20 @@ def calculate_psnr_ndarray(original_image: np.ndarray, compressed_image: np.ndar
     返回:
         float: PSNR 值，单位为 dB
     """
-    mse = np.mean((original_image - compressed_image) ** 2)
-    if mse == 0:  # 图像完全相同
-        return float('inf')
+    # mse = np.mean((original_image - compressed_image) ** 2)
+    # if mse == 0:  # 图像完全相同
+    #     return float('inf')
+    #
+    # max_pixel_value = 255.0
+    # res = 20 * np.log10(max_pixel_value / np.sqrt(mse))
+    # return res
+    x = torch.from_numpy(original_image).permute(2, 0, 1).unsqueeze(0)
+    y = torch.from_numpy(compressed_image).permute(2, 0, 1).unsqueeze(0)
 
-    max_pixel_value = 255.0
-    res = 20 * np.log10(max_pixel_value / np.sqrt(mse))
-    return res
+    psnr_index = piq.psnr(x, y, data_range=255., reduction='none')
+    return psnr_index.item()
+
+
 def calculate_psnr_tensor(original_image: torch.Tensor, compressed_image: torch.Tensor) -> float:
     """
     计算峰值信噪比 (PSNR)
@@ -167,6 +177,7 @@ def calculate_psnr_tensor(original_image: torch.Tensor, compressed_image: torch.
     max_pixel_value = 255.0
     res = 20 * torch.log10(max_pixel_value / torch.sqrt(mse))
     return res.item()
+
 
 def calculate_msssim_ndarray(original_image: np.ndarray, compressed_image: np.ndarray, is_rgb: bool = True) -> float:
     """
@@ -193,7 +204,10 @@ def calculate_msssim_ndarray(original_image: np.ndarray, compressed_image: np.nd
     msssim_value = ms_ssim(original_image_tensor, compressed_image_tensor, data_range=255)
 
     return msssim_value.item()
-def calculate_msssim_tensor(original_image: torch.Tensor, compressed_image: torch.Tensor, is_rgb: bool = True,data_range:float=1.0) -> float:
+
+
+def calculate_msssim_tensor(original_image: torch.Tensor, compressed_image: torch.Tensor, is_rgb: bool = True,
+                            data_range: float = 1.0) -> float:
     """
     计算多尺度结构相似性 (MS-SSIM)
 
@@ -222,6 +236,7 @@ def calculate_msssim_tensor(original_image: torch.Tensor, compressed_image: torc
 
     return msssim_value.item()
 
+
 def evaluate_ndarray(original_image: np.ndarray, compressed_image: np.ndarray) -> dict:
     """
     计算压缩图像的 PSNR 和 MS-SSIM
@@ -237,6 +252,7 @@ def evaluate_ndarray(original_image: np.ndarray, compressed_image: np.ndarray) -
     msssim = calculate_msssim_ndarray(original_image, compressed_image)
 
     return {'PSNR': psnr, 'MS-SSIM': msssim}
+
 
 def evaluate_tensor(original_image: torch.Tensor, compressed_image: torch.Tensor) -> dict:
     """
@@ -267,4 +283,7 @@ def evaluate_tensor(original_image: torch.Tensor, compressed_image: torch.Tensor
     psnr = calculate_psnr_tensor(original_image, compressed_image)
     msssim = calculate_msssim_tensor(original_image, compressed_image)
 
-    return {'PSNR': psnr, 'MS-SSIM': msssim}
+    return {
+        'PSNR': f'{psnr:.4f}',  # 固定保留4位小数
+        'MS-SSIM': f'{msssim:.6f}'  # 固定保留6位小数
+    }

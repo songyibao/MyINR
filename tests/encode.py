@@ -1,35 +1,52 @@
+import os.path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from PIL import Image
-import time
+
 from src.configs.config import GlobalConfig, ModelConfig, TrainConfig, SaveConfig
 from src.decompress import decompress_and_save
-from src.models.inputs import get_coordinate_grid, positional_encoding
+from src.models.inputs import periodic_encoding, positional_encoding, get_coordinate_grid
 from src.models.model1 import ConfigurableINRModel
 from src.train import train_inr
+from src.utils.data_loader import ImageCompressionDataset
 from src.utils.device import global_device
 from src.utils.log import logger
 
-def test(model_config:ModelConfig, train_config:TrainConfig, save_config:SaveConfig):
+
+def test(model_config:ModelConfig, train_config:TrainConfig, save_config:SaveConfig,deivce=global_device):
     logger.info(f'模型配置:{model_config.config}')
-    # 加载和预处理图像
     logger.info("加载和预处理图像")
-    img = Image.open(train_config.image_path).convert('RGB')
-    img_np = np.array(img) / 255.0
-    h, w = img_np.shape[0], img_np.shape[1]
-    # 创建坐标网格
+    dataset = ImageCompressionDataset(train_config.image_path)
     logger.info("创建坐标网格")
-    coords = get_coordinate_grid(h, w, device)
+    coords, pixels = dataset[0]
     coords = positional_encoding(coords)
-    pixels = torch.from_numpy(img_np).float().to(device)
+    coords, pixels = coords.to(deivce), pixels.to(deivce)
+    target_image = pixels.view(dataset.h,dataset.w,-1).to(device)
+    # 加载和预处理图像
+    # logger.info("加载和预处理图像")
+    # img = Image.open(train_config.image_path).convert('RGB')
+    # img_np = np.array(img) / 255.0
+    # h, w = img_np.shape[0], img_np.shape[1]
+    # 创建坐标网格
+    # logger.info("创建坐标网格")
+    # coords = get_coordinate_grid(h, w, device)
+    # coords = positional_encoding(coords)
+    # pixels = torch.from_numpy(img_np).float().to(device)
+    # target_image = pixels.view(h, w, -1)
+    # plt.imshow(target_image.cpu().numpy())
+    # plt.show()
     inr_model = ConfigurableINRModel(model_config.config,in_features=coords.shape[-1])
     # 训练模型并记录过程
-    trained_inr_model = train_inr(model_input=coords, target_image=pixels, model=inr_model, device=device, config=train_config)
-
+    trained_inr_model = train_inr(model_input=coords, target_image=target_image, model=inr_model, device=device, config=train_config)
 
     # 保存模型
     logger.info("保存模型")
-    torch.save(trained_inr_model.state_dict(), save_config.model_save_path)
+    if not os.path.exists(save_config.base_output_path):
+        os.makedirs(save_config.base_output_path)
+
+    torch.save(trained_inr_model.state_dict(), os.path.join(save_config.model_save_path,save_config.model_name).__str__())
 
     # 记录模型保存路径
     logger.info("保存模型到wandb")
@@ -39,14 +56,14 @@ def test(model_config:ModelConfig, train_config:TrainConfig, save_config:SaveCon
     img_np = np.array(img) / 255.0
 
     # 创建坐标网格
-    h, w, _ = img_np.shape
+    # h, w, _ = img_np.shape
 
     # 解压并保存图像
     logger.info("重建并保存图像")
-    coords = get_coordinate_grid(h, w, torch.device('cpu'))
-    coords = positional_encoding(coords)
+    # coords = get_coordinate_grid(h, w, torch.device('cpu'))
+    # coords = positional_encoding(coords)
     model = ConfigurableINRModel(model_config.config,in_features=coords.shape[-1])
-    model.load_state_dict(torch.load(save_config.model_save_path,map_location=device))
+    model.load_state_dict(torch.load(os.path.join(save_config.model_save_path,save_config.model_name).__str__(),weights_only=True,map_location=device))
     decompress_and_save(inr_model=model, model_input=coords, base_output_path=save_config.base_output_path, config=global_config)
 
     # 保存生成的图像到wandb

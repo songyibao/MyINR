@@ -20,7 +20,7 @@ def train_inr(model_input, target_image, model,  config: TrainConfig,device=glob
     max_patience_counter = 0
     patience_counter = 0  # 耐心计数器
     # 将模型移动到合适的设备上
-    logger.debug(f"运行设备：{device}")
+    logger.info(f"运行设备：{device}")
     model = model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -35,7 +35,7 @@ def train_inr(model_input, target_image, model,  config: TrainConfig,device=glob
     # criterion = nn.MSELoss()
 
     # 使用 tqdm 包裹训练循环
-    with tqdm(total=num_epochs, desc=f"TrainingPhase:") as pbar:
+    with tqdm(total=num_epochs, desc=f"Training:") as pbar:
         for epoch in range(num_epochs):
             optimizer.zero_grad()
 
@@ -86,18 +86,16 @@ def train_inr(model_input, target_image, model,  config: TrainConfig,device=glob
                 tqdm.write(f"早停: 在epoch {epoch + 1}停止训练。验证损失没有在{patience}个epoch内改善。")
                 break
 
-            # if (epoch + 1) % 100 == 0:
-            #     tqdm.write(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}, LR: {scheduler.get_last_lr()[0]}, Best Loss: {best_val_loss:.4f}, Patience: {patience_counter}/{patience}, Max Patience: {max_patience_counter}")
             update_value = {
-                "Epoch": f'{epoch + 1}/{num_epochs}',
-                "LR": scheduler.get_last_lr()[0],
+                "Epoch": f'{epoch + 1:<{len(str(num_epochs))}}/{num_epochs}',
+                "LR": f'{scheduler.get_last_lr()[0]:.6f}',
                 "Loss": f'{loss.item():.4f}',
-                "Patience": f'{patience_counter}/{patience}',
+                "Patience": f'{patience_counter:<{len(str(patience))}}/{patience}',
                 "Best Loss": f'{best_val_loss:.4f}',
-                "Max Patience": f'{max_patience_counter}'
+                "Max Patience": f'{max_patience_counter:>4}'
             }
             update_value.update(evaluate_res)
-            # 更新进度条
+            # Update progress bar
             pbar.set_postfix(update_value)
             pbar.update()
         return model

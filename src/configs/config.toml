@@ -1,19 +1,19 @@
-project_root_path = "/home/work/workspace/liu_iot2024_b/projects/MyINR"
 
 [train]
 image_path = "data/processed/1.png"
 learning_rate = 0.001
-num_epochs = 10000
+num_epochs = 1000
 patience = 600
 scheduler_step_size = 1000
-scheduler_gamma = 0.8
+scheduler_gamma = 1
 target_loss = 0.001
-loss_type = "FullCombinedLoss"
+loss_type = "SSIMLoss"
 
 [save]
-model_save_path = "res/model/inr_model.pth"
+model_save_path = "res/model"
+model_name = "new_model.pth"
 base_output_path = "res"
-image_save_path = "img"
+image_save_path = "res/img"
 
 [misc]
 log_save_path = "logs"
@@ -24,31 +24,31 @@ log_save_path = "logs"
 
 [[model.layers]]
 type = "Linear"
-out_features = 32
+out_features = 256
 [[model.layers]]
 type = "ReLU"
-out_features = 32
+out_features = 256
 
 [[model.layers]]
 type = "Linear"
-out_features = 32
+out_features = 256
 [[model.layers]]
 type = "ReLU"
-out_features = 32
+out_features = 256
 
 [[model.layers]]
 type = "Linear"
-out_features = 32
+out_features = 256
 [[model.layers]]
 type = "ReLU"
-out_features = 32
+out_features = 256
 
 [[model.layers]]
 type = "Linear"
-out_features = 32
+out_features = 256
 [[model.layers]]
 type = "ReLU"
-out_features = 32
+out_features = 256
 
 [[model.layers]]
 type = "Linear"

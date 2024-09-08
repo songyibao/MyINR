@@ -1,13 +1,3 @@
-# 配置类,读取 'configs/config.toml' 文件
-# 内容:
-# [train]
-# image_path = "data/processed/1.png"
-# learning_rate = 0.0001
-# num_epochs = 100
-# model_save_path = "res/model/inr_model.pth"
-# [model]
-# hidden_features = 256
-# hidden_layers = 3
 import toml
 import platform
 import os
@@ -39,6 +29,13 @@ class SaveConfig:
         self.model_save_path = os.path.join(project_root_path,self.config['model_save_path'])
         self.base_output_path = os.path.join(project_root_path,self.config['base_output_path'])
         self.image_save_path = os.path.join(project_root_path,self.config['image_save_path'])
+        self.model_name = self.config['model_name']
+        if not os.path.exists(self.base_output_path):
+            os.makedirs(self.base_output_path)
+        if not os.path.exists(self.image_save_path):
+            os.makedirs(self.image_save_path)
+        if not os.path.exists(self.model_save_path):
+            os.makedirs(self.model_save_path)
 
 
 class MiscConfig:
@@ -51,7 +48,7 @@ class GlobalConfig:
         self.current_file_path = os.path.abspath(__file__)
         config_path = os.path.join(os.path.dirname(self.current_file_path),'config.toml')
         self.config = toml.load(config_path)
-        self.project_root_path = self.config['project_root_path']
+        self.project_root_path = os.path.dirname(os.path.dirname(os.path.dirname(self.current_file_path)))
         self.train_config = TrainConfig(self.project_root_path,self.config['train'])
         self.model_config = ModelConfig(self.project_root_path,self.config['model'])
         self.save_config = SaveConfig(self.project_root_path,self.config['save'])

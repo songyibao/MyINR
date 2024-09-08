@@ -5,8 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
-import pytorch_ssim
-
+from pytorch_msssim import ssim, ms_ssim, SSIM, MS_SSIM
 # 定义一个装饰器，用于注册损失函数,损失函数的输入形状统一为 [height, width, 3]
 class LossRegistry:
     _loss_functions = {}
@@ -107,11 +106,11 @@ class EdgeLoss(nn.Module):
 class SSIMLoss(nn.Module):
     def __init__(self):
         super(SSIMLoss, self).__init__()
-
+        self.ssim_loss = SSIM(win_size=11, win_sigma=1.5, data_range=1, size_average=True, channel=3)
     def forward(self, output_image, target_image):
         output_image = output_image.permute(2, 0, 1).unsqueeze(0).float()
         target_image = target_image.permute(2, 0, 1).unsqueeze(0).float()
-        return 1 - pytorch_ssim.SSIM()(output_image, target_image)
+        return 1 - self.ssim_loss(output_image, target_image)
 
 
 @LossRegistry.register("FullCombinedLoss")

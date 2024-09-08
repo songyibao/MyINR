@@ -79,14 +79,15 @@ def decompress_and_save(inr_model, model_input, config: GlobalConfig, base_outpu
 
     # 计算评估指标
     logger.info("计算原图像和重建图像psnr和ssim")
-    result=evaluate_ndarray(original_image, np.array(pixels))
+
+    result=evaluate_ndarray(original_image, np.array(pixels*255).astype(np.uint8))
     # 计算bpp
     logger.info("计算 bpp")
     bpp = calculate_bpp(torch.tensor(original_image),inr_model)
     result.update({
         "bpp": bpp
     })
-
+    logger.info(f'{result}')
     # 转换并保存图像
     logger.info("转换和保存图像")
     reconstructed_image = to_pil_image(pixels.permute(2, 0, 1)) # Tensor 类型会被内部 permute
@@ -103,7 +104,7 @@ def decompress_and_save(inr_model, model_input, config: GlobalConfig, base_outpu
 
 
 
-    logger.info(f'{result}')
+
     # 保存评估指标
     result_file_path = os.path.join(experiment_dir, 'evaluation_results.toml')
     save_config_to_toml(result, result_file_path)
