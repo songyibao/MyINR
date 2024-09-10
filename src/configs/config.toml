@@ -2,9 +2,9 @@
 [train]
 image_path = "data/processed/1.png"
 learning_rate = 0.001
-num_epochs = 1000
+num_epochs = 10000
 patience = 600
-scheduler_step_size = 100
+scheduler_step_size = 1000
 scheduler_gamma = 0.9
 target_loss = 0.001
 loss_type = "SSIMLoss"

@@ -8,6 +8,9 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.transforms import ToTensor
 
+from src.configs.config import GlobalConfig
+from src.models.inputs import positional_encoding
+
 
 def get_coords(h, w):
     y_coords, x_coords = torch.meshgrid(
@@ -35,7 +38,7 @@ class ImageCompressionDataset(Dataset):
         self.coords = get_coords(self.h,self.w)  # 转换为 (h * w, 2)
 
         # 获取图像的像素值，形状为 (h * w, 3)
-        self.pixels = self.img_tensor.permute(1, 2, 0).reshape(-1, 3)  # 转换为 (h * w, 3)
+        self.pixels = self.img_tensor.permute(1, 2, 0).view(-1, 3)  # 转换为 (h * w, 3)
 
     def __len__(self):
         """
@@ -54,5 +57,5 @@ class ImageCompressionDataset(Dataset):
         - 坐标网格（形状为 (h * w, 2)）
         - 图像像素值（形状为 (h * w, 3)）
         """
-        return self.coords, self.pixels
+        return positional_encoding(self.coords,num_frequencies=GlobalConfig().model_config.num_frequencies), self.pixels, self.h, self.w
 

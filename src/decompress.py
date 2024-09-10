@@ -1,27 +1,21 @@
 import datetime
 import os
-
-import numpy as np
-import toml
-import torch
 import platform
 
-from torchvision.transforms import v2
-from torchvision.transforms.v2 import ToTensor
+import toml
+import torch
 
+from src.utils.data_loader import ImageCompressionDataset
 from src.utils.device import global_device
 
 os_type = platform.system()
 if os_type == 'Windows':
     pass
-from PIL import Image
 from torchvision.transforms.functional import to_pil_image
 
-from src.models.inputs import get_coordinate_grid, positional_encoding
 from src.models.model1 import ConfigurableINRModel
 from src.configs.config import GlobalConfig
-from src.utils.evaluate import get_original_image_numpy, calculate_bpp, evaluate_ndarray, evaluate_tensor, \
-    evaluate_tensor_h_w_3
+from src.utils.evaluate import calculate_bpp, evaluate_tensor_h_w_3
 from src.utils.log import logger
 import matplotlib.pyplot as plt
 
@@ -49,6 +43,8 @@ def save_experiment_summary(summary: dict, file_path: str):
 def create_comparison_image(original_image, reconstructed_image, save_path: str):
     """创建原始图像和重建图像的比较图"""
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+    original_image = original_image.cpu()
+    # reconstructed_image.to('cpu')
     ax1.imshow(original_image)
     ax1.set_title("Original Image")
     ax1.axis('off')
@@ -59,63 +55,53 @@ def create_comparison_image(original_image, reconstructed_image, save_path: str)
     plt.savefig(save_path)
     plt.close()
 
-def decompress_and_save(inr_model, model_input, config: GlobalConfig, base_output_path: str):
+def decompress_and_save(inr_model, config: GlobalConfig, base_output_path: str,model_input:torch.Tensor=None,original_image:torch.Tensor=None):
+    # 创建本次实验目录
     experiment_dir = create_experiment_directory(base_output_path)
     global_config_dict = config.config
     model_config_dict = config.model_config.config
-    original_image_path = config.train_config.image_path
-    # 获取原始图像并保存
-    original_image = get_original_image_numpy(original_image_path)
-    original_image_path = os.path.join(experiment_dir, 'original_image.png')
-    to_pil_image(original_image).save(original_image_path)
-
-    logger.info(f"图像形状{original_image.shape}")
-    shape = original_image.shape
 
     # 使用CPU模式并设置模型为评估模式
-    inr_model = inr_model.to('cpu').eval()
-    model_input = model_input.to('cpu')
-
+    # inr_model = inr_model.to('cpu').eval()
+    device = next(inr_model.parameters()).device
+    h, w = 0, 0
+    original_image_path = config.train_config.image_path
+    dataset = ImageCompressionDataset(original_image_path)
+    dataset.img.save(os.path.join(experiment_dir, 'original_image.png'))
+    if model_input is None or original_image is None:
+        coords, original_image, h, w = dataset[0]
+        original_image = original_image.view(h, w, 3)
+        model_input = coords.to(device)
+    else:
+        h,w = original_image.shape[0],original_image.shape[1]
+    logger.info(f"原图像形状{original_image.shape}")
     # 计算模型输出
     logger.info("计算模型输出")
     with torch.no_grad():
-        # [h * w, 3] -> [h, w, 3]
-        pixels = inr_model(model_input).view(shape[0], shape[1], 3)
+        # [h*w,3]
+        output_image = inr_model(model_input).view(h, w, 3)
 
     # 计算评估指标
     logger.info("计算原图像和重建图像psnr和ssim")
 
-    # Converts a PIL Image or numpy. ndarray (H x W x C) in the range [0, 255] to a torch. FloatTensor of shape (C x H x W) in the range [0.0, 1.0]
-    trans_fun = v2.Compose([v2.ToImage(), v2.ToDtype(torch. float32, scale=True)])
-    # [H,W,3] -> [3,H,W]
-    x = trans_fun(original_image)
-    # [3,H,W] -> [H,W,3]
-    x = x.permute(1,2,0)
-
-    result=evaluate_tensor_h_w_3(x, torch.clamp(pixels, 0, 1))
+    with torch.no_grad():
+        result=evaluate_tensor_h_w_3(original_image, torch.clamp(output_image, 0, 1),global_device)
     # 计算bpp
     logger.info("计算 bpp")
-    bpp = calculate_bpp(torch.tensor(original_image),inr_model)
+    bpp = calculate_bpp(original_image,inr_model)
     result.update({
         "bpp": bpp
     })
     logger.info(f'{result}')
     # 转换并保存图像
     logger.info("转换和保存图像")
-    reconstructed_image = to_pil_image(pixels.permute(2, 0, 1)) # Tensor 类型会被内部 permute
+    reconstructed_image = to_pil_image(output_image.permute(2, 0, 1)) # Tensor 类型会被内部 permute
     img_save_path = os.path.join(experiment_dir, 'reconstructed_image.png')
     reconstructed_image.save(img_save_path)
-
-
 
     # 创建比较图像
     comparison_image_path = os.path.join(experiment_dir, 'comparison.png')
     create_comparison_image(original_image, reconstructed_image, comparison_image_path)
-
-
-
-
-
 
     # 保存评估指标
     result_file_path = os.path.join(experiment_dir, 'evaluation_results.toml')
@@ -124,8 +110,6 @@ def decompress_and_save(inr_model, model_input, config: GlobalConfig, base_outpu
     # 保存配置文件
     config_file_path = os.path.join(experiment_dir, 'config.toml')
     save_config_to_toml(global_config_dict, config_file_path)
-
-
 
     # 创建并保存实验摘要
     summary = {
@@ -155,15 +139,10 @@ if os.getenv('MODE',"TRAIN").upper()=="SINGLE":
     train_config = global_config.train_config
     save_config = global_config.save_config
     model_config = global_config.model_config
-    img = Image.open(train_config.image_path).convert('RGB')
-    img_np = np.array(img) / 255.0
-    h, w, _ = img_np.shape
-    logger.info(f'传入参数形状:(h,w)={(h,w)}')
-    coords = get_coordinate_grid(h, w, torch.device('cpu'))
-    coords = positional_encoding(coords)
+    dataset = ImageCompressionDataset(train_config.image_path)
+    coords, pixels,_,_ = dataset[0]
     model = ConfigurableINRModel(model_config.config,in_features=coords.shape[-1])
-    device = global_device
     model_path = os.path.join(save_config.model_save_path,save_config.model_name)
-    model.load_state_dict(torch.load(model_path.__str__(),map_location=device))
-    decompress_and_save(inr_model=model, model_input=coords, base_output_path=save_config.base_output_path, config=global_config)
+    model.load_state_dict(torch.load(model_path.__str__(),weights_only=True,map_location=torch.device('cpu')))
+    decompress_and_save(inr_model=model, base_output_path=save_config.base_output_path, config=global_config)
 
