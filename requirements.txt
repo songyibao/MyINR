@@ -1,7 +1,7 @@
 torch
 pillow
 torchvision
-numpy
+numpy==1.26.0
 toml
 tqdm
 matplotlib
@@ -9,3 +9,6 @@ sympy
 pytorch_msssim
 piq
 imageio
+pyqt6
+pyqt6-sip
+torchinfo

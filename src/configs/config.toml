@@ -2,12 +2,16 @@
 [train]
 image_path = "data/processed/1.png"
 learning_rate = 0.001
-num_epochs = 10000
+num_epochs = 1000
 patience = 600
-scheduler_step_size = 1000
+scheduler_step_size = 100
 scheduler_gamma = 0.9
 target_loss = 0.001
-loss_type = "SSIMLoss"
+
+#loss_type = "SSIMLoss"
+#loss_type = "EdgeLoss"
+loss_type = "MSELoss"
+
 
 [save]
 model_save_path = "res/model"
@@ -24,31 +28,25 @@ num_frequencies = 10
 
 [[model.layers]]
 type = "Linear"
-out_features = 256
+out_features = 128
 [[model.layers]]
 type = "ReLU"
-out_features = 256
+out_features = 128
 
 [[model.layers]]
 type = "Linear"
-out_features = 256
+out_features = 128
 [[model.layers]]
 type = "ReLU"
-out_features = 256
+out_features = 128
 
 [[model.layers]]
 type = "Linear"
-out_features = 256
+out_features = 128
 [[model.layers]]
 type = "ReLU"
-out_features = 256
+out_features = 128
 
-[[model.layers]]
-type = "Linear"
-out_features = 256
-[[model.layers]]
-type = "ReLU"
-out_features = 256
 
 [[model.layers]]
 type = "Linear"

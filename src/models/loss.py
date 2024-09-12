@@ -112,6 +112,30 @@ class SSIMLoss(nn.Module):
         target_image = target_image.permute(2, 0, 1).unsqueeze(0).float()
         return 1 - self.ssim_loss(output_image, target_image)
 
+@LossRegistry.register("MSELoss")
+class MSELoss(nn.Module):
+    def __init__(self):
+        super(MSELoss, self).__init__()
+        self.mse_loss = nn.MSELoss()
+    def forward(self, output_image, target_image):
+        return self.mse_loss(output_image, target_image)
+
+@LossRegistry.register("SSIMandEdgeLoss")
+class SSIMandEdgeLoss(nn.Module):
+    def __init__(self, edge_loss_weight=0.05, ssim_loss_weight=0.1):
+        super(SSIMandEdgeLoss, self).__init__()
+        self.ssim_loss = SSIMLoss()
+        self.edge_loss = EdgeLoss()
+        self.edge_loss_weight = edge_loss_weight
+        self.ssim_loss_weight = ssim_loss_weight
+
+    def forward(self, output_image, target_image):
+        edge_loss_value = self.edge_loss(output_image, target_image)
+        ssim_loss_value = self.ssim_loss(output_image, target_image)
+        total_loss = self.edge_loss_weight * edge_loss_value + self.ssim_loss_weight * ssim_loss_value
+        return total_loss
+
+
 
 @LossRegistry.register("FullCombinedLoss")
 class FullCombinedLoss(nn.Module):

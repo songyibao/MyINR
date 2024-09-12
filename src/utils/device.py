@@ -26,8 +26,12 @@ def get_best_device():
     if os_type == 'Windows':
         import torch_directml
         return torch_directml.device() if torch_directml.is_available() else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    else:
+    elif os_type == 'Linux':
         return get_best_gpu() if torch.cuda.is_available() else torch.device('cpu')
+    elif os_type == 'Darwin':
+        return torch.device('mps') if torch.backends.mps.is_available() else torch.device('cpu')
+    else:
+        return torch.device('cpu')
 
 
 global_device = get_best_device()
