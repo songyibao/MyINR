@@ -47,6 +47,12 @@ out_features = 128
 type = "ReLU"
 out_features = 128
 
+[[model.layers]]
+type = "Linear"
+out_features = 128
+[[model.layers]]
+type = "ReLU"
+out_features = 128
 
 [[model.layers]]
 type = "Linear"

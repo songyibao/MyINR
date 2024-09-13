@@ -4,6 +4,8 @@ import platform
 
 import toml
 import torch
+from torch.backends.mkl import verbose
+from torchinfo import summary
 
 from src.utils.data_loader import ImageCompressionDataset
 from src.utils.device import global_device
@@ -38,7 +40,7 @@ def save_experiment_summary(summary: dict, file_path: str):
     """保存实验摘要"""
     with open(file_path, 'w') as f:
         for key, value in summary.items():
-            f.write(f"{key}: {value}\n")
+            f.write(f"{key}: \n{value}\n")
 
 def create_comparison_image(original_image, reconstructed_image, save_path: str):
     """创建原始图像和重建图像的比较图"""
@@ -64,7 +66,6 @@ def decompress_and_save(inr_model, config: GlobalConfig, base_output_path: str,m
     # 使用CPU模式并设置模型为评估模式
     # inr_model = inr_model.to('cpu').eval()
     device = next(inr_model.parameters()).device
-    h, w = 0, 0
     original_image_path = config.train_config.image_path
     dataset = ImageCompressionDataset(original_image_path)
     dataset.img.save(os.path.join(experiment_dir, 'original_image.png'))
@@ -95,6 +96,7 @@ def decompress_and_save(inr_model, config: GlobalConfig, base_output_path: str,m
     logger.info(f'{result}')
     # 转换并保存图像
     logger.info("转换和保存图像")
+    output_image = torch.clamp(output_image, 0, 1)
     reconstructed_image = to_pil_image(output_image.permute(2, 0, 1)) # Tensor 类型会被内部 permute
     img_save_path = os.path.join(experiment_dir, 'reconstructed_image.png')
     reconstructed_image.save(img_save_path)
@@ -112,7 +114,7 @@ def decompress_and_save(inr_model, config: GlobalConfig, base_output_path: str,m
     save_config_to_toml(global_config_dict, config_file_path)
 
     # 创建并保存实验摘要
-    summary = {
+    exp_summary = {
         "Timestamp": datetime.datetime.now().isoformat(),
         "Model Configuration": model_config_dict,
         "Evaluation Results": result,
@@ -120,9 +122,11 @@ def decompress_and_save(inr_model, config: GlobalConfig, base_output_path: str,m
         "Reconstructed Image": img_save_path,
         "Comparison Image": comparison_image_path
     }
+    s_str = str(summary(inr_model, input_size=(16, model_input.shape[-1]),verbose=0))
+    exp_summary.update({"Model Summary": s_str})
 
     summary_path = os.path.join(experiment_dir, 'experiment_summary.txt')
-    save_experiment_summary(summary, summary_path)
+    save_experiment_summary(exp_summary, summary_path)
 
     logger.info(f'实验结果已保存到目录: {experiment_dir}')
     return experiment_dir
