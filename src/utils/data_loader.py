@@ -57,5 +57,10 @@ class ImageCompressionDataset(Dataset):
         - 坐标网格（形状为 (h * w, 2)）
         - 图像像素值（形状为 (h * w, 3)）
         """
-        return positional_encoding(self.coords,num_frequencies=GlobalConfig().model_config.num_frequencies), self.pixels, self.h, self.w
+        config = GlobalConfig()
+        # 判断是否有 num_frequencies 这个key
+        if config.model_config.num_frequencies is None:
+            return self.coords, self.pixels, self.h, self.w
+        else:
+            return positional_encoding(self.coords,num_frequencies=GlobalConfig().model_config.num_frequencies), self.pixels, self.h, self.w
 

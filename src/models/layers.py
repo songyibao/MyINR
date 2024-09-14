@@ -189,7 +189,15 @@ class Fourier_reparam_linear(nn.Module):
         return output
 
 
-
+@LayerRegistry.register('LearnableEmbedding')
+class LearnableEmbedding(nn.Module):
+    def __init__(self, in_features, out_features):
+        super().__init__()
+        self.embedding = nn.Embedding(in_features, out_features)
+        self.in_features = in_features
+        self.out_features = out_features
+    def forward(self, x):
+        return self.embedding(x)
 
 
 @LayerRegistry.register('PosEncodingNeRF')
@@ -208,70 +216,7 @@ class PositionalEncoding(nn.Module):
             encodings.append(torch.sin(freq * x))
             encodings.append(torch.cos(freq * x))
         return torch.cat(encodings, dim=-1).view(x.shape[0], -1)
-# class PosEncodingNeRF(nn.Module):
-#     '''Module to add positional encoding as in NeRF [Mildenhall et al. 2020].'''
-#     def __init__(self, in_features, sidelength=None, fn_samples=None, use_nyquist=True):
-#         super().__init__()
-#
-#         self.in_features = in_features
-#
-#         if self.in_features == 3:
-#             self.num_frequencies = 10
-#         elif self.in_features == 2:
-#             assert sidelength is not None
-#             if isinstance(sidelength, int):
-#                 sidelength = (sidelength, sidelength)
-#             self.num_frequencies = 4
-#             if use_nyquist:
-#                 self.num_frequencies = self.get_num_frequencies_nyquist(min(sidelength[0], sidelength[1]))
-#         elif self.in_features == 1:
-#             assert fn_samples is not None
-#             self.num_frequencies = 4
-#             if use_nyquist:
-#                 self.num_frequencies = self.get_num_frequencies_nyquist(fn_samples)
-#
-#         self.out_features = in_features + 2 * in_features * self.num_frequencies
-#
-#     def get_num_frequencies_nyquist(self, samples):
-#         nyquist_rate = 1 / (2 * (2 * 1 / samples))
-#         return int(math.floor(math.log(nyquist_rate, 2)))
-#
-#     def forward(self, coords):
-#         coords = coords.view(coords.shape[0], -1, self.in_features)
-#
-#         coords_pos_enc = coords
-#         for i in range(self.num_frequencies):
-#             for j in range(self.in_features):
-#                 c = coords[..., j]
-#
-#                 sin = torch.unsqueeze(torch.sin((2 ** i) * np.pi * c), -1)
-#                 cos = torch.unsqueeze(torch.cos((2 ** i) * np.pi * c), -1)
-#
-#                 coords_pos_enc = torch.cat((coords_pos_enc, sin, cos), axis=-1)
-#         return coords_pos_enc.reshape(coords.shape[0], -1, self.out_features)
 
-# @LayerRegistry.register('SIREN')
-# class SIRENLayer(nn.Module):
-#     def __init__(self, in_features, out_features, omega_0=30):
-#         super().__init__()
-#         self.omega_0 = omega_0
-#         self.linear = nn.Linear(in_features, out_features)
-#         self.in_features = in_features
-#         self.out_features = out_features
-#         nn.init.uniform_(self.linear.weight, -1 / in_features, 1 / in_features)
-#
-#     def forward(self, x):
-#         return torch.sin(self.omega_0 * self.linear(x))
-
-# class SIRENLayer(nn.Module):
-#     def __init__(self, in_features: int, out_features: int, omega_0: float = 30):
-#         super().__init__()
-#         self.linear = nn.Linear(in_features, out_features)
-#         self.omega_0 = omega_0
-#         self.in_features = in_features
-#         self.out_features = out_features
-#     def forward(self, x):
-#         return torch.sin(self.omega_0 * self.linear(x))
 @LayerRegistry.register('Linear')
 class LinearLayer(nn.Module):
     def __init__(self, in_features: int, out_features: int):

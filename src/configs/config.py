@@ -5,7 +5,7 @@ import os
 class ModelConfig:
     def __init__(self,project_root_path:str,model_config:dict):
         self.config = model_config
-        self.num_frequencies = self.config['num_frequencies']
+        self.num_frequencies = None if 'num_frequencies' not in self.config else self.config['num_frequencies']
         # self.hidden_features = self.config['hidden_features']
         # self.hidden_layers = self.config['hidden_layers']
         # self.in_features = self.config['in_features']

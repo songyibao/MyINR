@@ -1,6 +1,6 @@
 
 [train]
-image_path = "data/processed/1.png"
+image_path = "data/kodak-dataset/kodim05.png"
 learning_rate = 0.001
 num_epochs = 1000
 patience = 600
@@ -22,9 +22,14 @@ image_save_path = "res/img"
 [misc]
 log_save_path = "logs"
 
-[model]
-num_frequencies = 10
 
+[model]
+#num_frequencies = 10
+
+
+[[model.layers]]
+type = "LearnableEmbedding"
+out_features = 128
 
 [[model.layers]]
 type = "Linear"
