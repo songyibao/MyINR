@@ -14,10 +14,10 @@ from src.utils.log import logger
 
 
 
-def train_inr(model_input, target_image, model, config: TrainConfig, device=global_device):
-    learning_rate = config.learning_rate
-    num_epochs = config.num_epochs
-    patience = config.patience
+def train_inr(model_input, target_image, model, train_config: TrainConfig, device=global_device):
+    learning_rate = train_config.learning_rate
+    num_epochs = train_config.num_epochs
+    patience = train_config.patience
 
     best_val_loss = np.inf
     best_model_state = None
@@ -28,9 +28,9 @@ def train_inr(model_input, target_image, model, config: TrainConfig, device=glob
     model = model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    scheduler = StepLR(optimizer, step_size=config.scheduler_step_size, gamma=config.scheduler_gamma)
+    scheduler = StepLR(optimizer, step_size=train_config.scheduler_step_size, gamma=train_config.scheduler_gamma)
 
-    loss_class = LossRegistry.get(config.loss_type)
+    loss_class = LossRegistry.get(train_config.loss_type)
     criterion = loss_class()
 
     with tqdm(total=num_epochs, desc=f"Training:") as pbar:
@@ -47,8 +47,8 @@ def train_inr(model_input, target_image, model, config: TrainConfig, device=glob
             scheduler.step()
 
             val_loss = loss.item()
-            if val_loss < config.target_loss:
-                tqdm.write(f"当前损失{val_loss}小于目标损失{config.target_loss}，停止训练。")
+            if val_loss < train_config.target_loss:
+                tqdm.write(f"当前损失{val_loss}小于目标损失{train_config.target_loss}，停止训练。")
                 break
 
             if patience_counter > max_patience_counter:

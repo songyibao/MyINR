@@ -4,6 +4,7 @@ import platform
 
 import toml
 import torch
+from numpy.distutils.command.config import config
 from torch.backends.mkl import verbose
 from torchinfo import summary
 
@@ -16,7 +17,7 @@ if os_type == 'Windows':
 from torchvision.transforms.functional import to_pil_image
 
 from src.models.model1 import ConfigurableINRModel
-from src.configs.config import GlobalConfig
+from src.configs.config import MyConfig
 from src.utils.evaluate import calculate_bpp, evaluate_tensor_h_w_3
 from src.utils.log import logger
 import matplotlib.pyplot as plt
@@ -57,16 +58,16 @@ def create_comparison_image(original_image, reconstructed_image, save_path: str)
     plt.savefig(save_path)
     plt.close()
 
-def decompress_and_save(inr_model, config: GlobalConfig, base_output_path: str,model_input:torch.Tensor=None,original_image:torch.Tensor=None):
+def decompress_and_save(inr_model, config: MyConfig, base_output_path: str, model_input:torch.Tensor=None, original_image:torch.Tensor=None):
     # 创建本次实验目录
     experiment_dir = create_experiment_directory(base_output_path)
-    global_config_dict = config.config
-    model_config_dict = config.model_config.config
+    global_config_dict = config.model_config
+    model_config_dict = config.net.model_config
 
     # 使用CPU模式并设置模型为评估模式
     # inr_model = inr_model.to('cpu').eval()
     device = next(inr_model.parameters()).device
-    original_image_path = config.train_config.image_path
+    original_image_path = config.train.image_path
     dataset = ImageCompressionDataset(original_image_path)
     dataset.img.save(os.path.join(experiment_dir, 'original_image.png'))
     if model_input is None or original_image is None:
@@ -122,7 +123,7 @@ def decompress_and_save(inr_model, config: GlobalConfig, base_output_path: str,m
         "Reconstructed Image": img_save_path,
         "Comparison Image": comparison_image_path
     }
-    s_str = str(summary(inr_model, input_size=(16, model_input.shape[-1]),verbose=0))
+    s_str = str(summary(inr_model, input_data=coords.to('cpu'),verbose=0))
     exp_summary.update({"Model Summary": s_str})
 
     summary_path = os.path.join(experiment_dir, 'experiment_summary.txt')
@@ -139,14 +140,11 @@ def decompress_and_save(inr_model, config: GlobalConfig, base_output_path: str,m
 # compress('data/raw/image.jpg', 'models/inr_model.pth', 'compressed_image.pth')
 # Load and preprocess the image
 if os.getenv('MODE',"TRAIN").upper()=="SINGLE":
-    global_config = GlobalConfig()
-    train_config = global_config.train_config
-    save_config = global_config.save_config
-    model_config = global_config.model_config
-    dataset = ImageCompressionDataset(train_config.image_path)
+    config = MyConfig.get_instance()
+    dataset = ImageCompressionDataset(config.train.image_path)
     coords, pixels,_,_ = dataset[0]
-    model = ConfigurableINRModel(model_config.config,in_features=coords.shape[-1])
-    model_path = os.path.join(save_config.model_save_path,save_config.model_name)
+    model = ConfigurableINRModel(config.model.model_config, in_features=coords.shape[-1])
+    model_path = os.path.join(config.save.model_save_path,config.save.model_name)
     model.load_state_dict(torch.load(model_path.__str__(),weights_only=True,map_location=torch.device('cpu')))
-    decompress_and_save(inr_model=model, base_output_path=save_config.base_output_path, config=global_config)
+    decompress_and_save(inr_model=model, base_output_path=config.save.base_output_path, config=config)
 

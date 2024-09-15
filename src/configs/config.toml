@@ -2,7 +2,7 @@
 [train]
 image_path = "data/kodak-dataset/kodim05.png"
 learning_rate = 0.001
-num_epochs = 1000
+num_epochs = 10
 patience = 600
 scheduler_step_size = 100
 scheduler_gamma = 0.9
@@ -14,8 +14,8 @@ loss_type = "MSELoss"
 
 
 [save]
-model_save_path = "res/model"
-model_name = "new_model.pth"
+net_save_path = "res/net"
+net_name = "new_net.pth"
 base_output_path = "res"
 image_save_path = "res/img"
 
@@ -23,43 +23,43 @@ image_save_path = "res/img"
 log_save_path = "logs"
 
 
-[model]
-#num_frequencies = 10
+[net]
+num_frequencies = 10
+#upsample = false
 
-
-[[model.layers]]
+[[net.layers]]
 type = "LearnableEmbedding"
-out_features = 128
+out_features = 64
 
-[[model.layers]]
+[[net.layers]]
 type = "Linear"
 out_features = 128
-[[model.layers]]
+[[net.layers]]
 type = "ReLU"
 out_features = 128
 
-[[model.layers]]
+[[net.layers]]
 type = "Linear"
 out_features = 128
-[[model.layers]]
+[[net.layers]]
 type = "ReLU"
 out_features = 128
 
-[[model.layers]]
+[[net.layers]]
 type = "Linear"
 out_features = 128
-[[model.layers]]
+[[net.layers]]
 type = "ReLU"
 out_features = 128
 
-[[model.layers]]
+[[net.layers]]
 type = "Linear"
 out_features = 128
-[[model.layers]]
+[[net.layers]]
 type = "ReLU"
 out_features = 128
 
-[[model.layers]]
+[[net.layers]]
 type = "Linear"
 out_features = 3
 

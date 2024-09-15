@@ -1,7 +1,7 @@
 torch
 pillow
 torchvision
-numpy==1.26.0
+numpy
 toml
 tqdm
 matplotlib
@@ -12,3 +12,4 @@ imageio
 pyqt6
 pyqt6-sip
 torchinfo
+pydantic

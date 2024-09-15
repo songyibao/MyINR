@@ -2,15 +2,21 @@
 # dataset = ImageDataset(config['data_path'])
 # dataloader = DataLoader(dataset, batch_size=config['batch_size'], shuffle=True)
 # 实现上面的ImageDataset
-
+import numpy as np
 import torch
 from PIL import Image
+from torch import nn
 from torch.utils.data import Dataset
 from torchvision.transforms import ToTensor
 
-from src.configs.config import GlobalConfig
+from src.configs.config import MyConfig
 from src.models.inputs import positional_encoding
 
+def upsample_image(img,scale_factor=3):
+    h, w, c = img.shape
+    upsampled_img = np.zeros((scale_factor * h, scale_factor * w, c), dtype=img.dtype)
+    upsampled_img[::scale_factor, ::scale_factor, :] = img
+    return upsampled_img
 
 def get_coords(h, w):
     y_coords, x_coords = torch.meshgrid(
@@ -28,10 +34,17 @@ class ImageCompressionDataset(Dataset):
         参数:
         - image_path (str): 图像文件的路径。
         """
+        self.config = MyConfig.get_instance()
         # 加载彩色图像并转换为 RGB 模式
         self.img = Image.open(image_path).convert('RGB')
         self.img_tensor = ToTensor()(self.img)  # 转换为 PyTorch 张量，形状为 (3, H, W)
-
+        # 转换为 NumPy 数组
+        self.img_array = np.array(self.img)
+        # 上采样
+        self.upsampled_img_array = upsample_image(self.img_array)
+        # 转换回 PIL 图像（如果需要）
+        self.upsampled_img = Image.fromarray(self.upsampled_img_array)
+        # 保存或显示上采样后的图像
         # 获取图像的宽、高信息
         self.h, self.w = self.img_tensor.shape[1], self.img_tensor.shape[2]
 
@@ -57,10 +70,12 @@ class ImageCompressionDataset(Dataset):
         - 坐标网格（形状为 (h * w, 2)）
         - 图像像素值（形状为 (h * w, 3)）
         """
-        config = GlobalConfig()
+
         # 判断是否有 num_frequencies 这个key
-        if config.model_config.num_frequencies is None:
+        if self.config.net.layers[0].type == 'LearnableEmbedding':
+            return torch.arange(self.h*self.w).long(), self.pixels, self.h, self.w
+        if self.config.model_config.num_frequencies is None:
             return self.coords, self.pixels, self.h, self.w
         else:
-            return positional_encoding(self.coords,num_frequencies=GlobalConfig().model_config.num_frequencies), self.pixels, self.h, self.w
+            return positional_encoding(self.coords, num_frequencies=MyConfig().model_config.num_frequencies), self.pixels, self.h, self.w
 

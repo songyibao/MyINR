@@ -1,61 +1,89 @@
-import toml
-import platform
 import os
+from typing import List, Optional, ClassVar
 
-class ModelConfig:
-    def __init__(self,project_root_path:str,model_config:dict):
-        self.config = model_config
-        self.num_frequencies = None if 'num_frequencies' not in self.config else self.config['num_frequencies']
-        # self.hidden_features = self.config['hidden_features']
-        # self.hidden_layers = self.config['hidden_layers']
-        # self.in_features = self.config['in_features']
-        # self.out_features = self.config['out_features']
+import imageio.v3
+import toml
+from pydantic import BaseModel, field_validator, model_validator, PrivateAttr
 
-class TrainConfig:
-    def __init__(self,project_root_path:str,train_config:dict):
-        self.config = train_config
-        self.image_path = os.path.join(project_root_path,self.config['image_path'])
-        self.learning_rate = self.config['learning_rate']
-        self.num_epochs = self.config['num_epochs']
-        self.patience = self.config['patience']
-        self.scheduler_step_size = self.config['scheduler_step_size']
-        self.scheduler_gamma = self.config['scheduler_gamma']
-        self.target_loss = self.config['target_loss']
-        self.loss_type = self.config['loss_type']
-class SaveConfig:
-    def __init__(self,project_root_path:str,save_config:dict):
-        self.config = save_config
-        # self.base_output_path = self.config['base_output_path']
-        # self.image_save_path = self.config['image_save_path']
-        self.model_save_path = os.path.join(project_root_path,self.config['model_save_path'])
-        self.base_output_path = os.path.join(project_root_path,self.config['base_output_path'])
-        self.image_save_path = os.path.join(project_root_path,self.config['image_save_path'])
-        self.model_name = self.config['model_name']
-        if not os.path.exists(self.base_output_path):
-            os.makedirs(self.base_output_path)
-        if not os.path.exists(self.image_save_path):
-            os.makedirs(self.image_save_path)
-        if not os.path.exists(self.model_save_path):
-            os.makedirs(self.model_save_path)
+# 定义项目根路径
+current_file_path = os.path.abspath(__file__)
+project_root_path = os.path.dirname(os.path.dirname(os.path.dirname(current_file_path)))
 
+class LayerConfig(BaseModel):
+    type: str
+    in_features: Optional[int] = None
+    out_features: int
 
-class MiscConfig:
-    def __init__(self,project_root_path:str,misc_config:dict):
-        self.config = misc_config
-        self.log_save_path = self.config['log_save_path']
-class GlobalConfig:
-    def __init__(self):
-        # 获取当前文件的绝对路径
-        self.current_file_path = os.path.abspath(__file__)
-        config_path = os.path.join(os.path.dirname(self.current_file_path),'config.toml')
-        self.config = toml.load(config_path)
-        self.project_root_path = os.path.dirname(os.path.dirname(os.path.dirname(self.current_file_path)))
-        self.train_config = TrainConfig(self.project_root_path,self.config['train'])
-        self.model_config = ModelConfig(self.project_root_path,self.config['model'])
-        self.save_config = SaveConfig(self.project_root_path,self.config['save'])
-        self.misc_config = MiscConfig(self.project_root_path,self.config['misc'])
-    def __str__(self):
-        return str(self.config)
+class NetConfig(BaseModel):
+    num_frequencies: Optional[int]
+    layers: List[LayerConfig]
+    in_features: Optional[int] = None
 
-    def __repr__(self):
-        return str(self.config)
+class TrainConfig(BaseModel):
+    image_path: str
+    learning_rate: float
+    num_epochs: int
+    patience: int
+    scheduler_step_size: int
+    scheduler_gamma: float
+    target_loss: float
+    loss_type: str
+    h: Optional[int] = None
+    w: Optional[int] = None
+
+    @field_validator('image_path', mode='before')
+    @classmethod
+    def validate_image_path(cls, v):
+        full_path = os.path.join(project_root_path, v)
+        if not os.path.exists(full_path):
+            raise ValueError(f"Image path does not exist: {full_path}")
+        return full_path
+
+    def model_post_init(self, __context):
+        image_path = self.image_path
+        image = imageio.v3.imread(image_path)
+        self.h, self.w = image.shape[:2]
+
+class SaveConfig(BaseModel):
+    net_save_path: str
+    net_name: str
+    base_output_path: str
+    image_save_path: str
+
+    @field_validator('*', mode='before')
+    @classmethod
+    def validate_paths(cls, v):
+        if v.endswith('_path'):
+            v = os.path.join(project_root_path, v)
+            if not os.path.exists(v):
+                os.makedirs(v)
+        return v
+
+class MiscConfig(BaseModel):
+    log_save_path: str
+
+    @field_validator('log_save_path', mode='before')
+    @classmethod
+    def validate_log_path(cls, v):
+        full_path = os.path.join(project_root_path, v)
+        if not os.path.exists(full_path):
+            os.makedirs(full_path)
+        return full_path
+
+class MyConfig(BaseModel):
+    train: TrainConfig
+    save: SaveConfig
+    misc: MiscConfig
+    net: NetConfig
+
+    _instance: ClassVar[Optional['MyConfig']] = None  # 标记为类变量
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            config_path = os.path.join(os.path.dirname(current_file_path), 'config.toml')
+            # 加载 TOML 文件
+            config_dict = toml.load(config_path)
+            # 创建唯一实例
+            cls._instance = cls(**config_dict)
+        return cls._instance

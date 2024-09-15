@@ -3,6 +3,10 @@ import math
 import numpy as np
 from torch import nn, Tensor
 import torch
+
+from src.configs.config import MyConfig
+
+
 class LayerRegistry:
     _layers = {}
 
@@ -193,7 +197,10 @@ class Fourier_reparam_linear(nn.Module):
 class LearnableEmbedding(nn.Module):
     def __init__(self, in_features, out_features):
         super().__init__()
-        self.embedding = nn.Embedding(in_features, out_features)
+        config = MyConfig.get_instance()
+        self.h, self.w = config.train.h, config.train.w
+        num_embeddings = self.h * self.w
+        self.embedding = nn.Embedding(num_embeddings, out_features)
         self.in_features = in_features
         self.out_features = out_features
     def forward(self, x):
