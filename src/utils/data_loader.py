@@ -74,8 +74,8 @@ class ImageCompressionDataset(Dataset):
         # 判断是否有 num_frequencies 这个key
         if self.config.net.layers[0].type == 'LearnableEmbedding':
             return torch.arange(self.h*self.w).long(), self.pixels, self.h, self.w
-        if self.config.model_config.num_frequencies is None:
+        if self.config.net.num_frequencies is None:
             return self.coords, self.pixels, self.h, self.w
         else:
-            return positional_encoding(self.coords, num_frequencies=MyConfig().model_config.num_frequencies), self.pixels, self.h, self.w
+            return positional_encoding(self.coords, num_frequencies=MyConfig.get_instance().net.num_frequencies), self.pixels, self.h, self.w
 

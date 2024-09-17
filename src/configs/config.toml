@@ -27,37 +27,37 @@ log_save_path = "logs"
 num_frequencies = 10
 #upsample = false
 
-[[net.layers]]
-type = "LearnableEmbedding"
-out_features = 64
+#[[net.layers]]
+#type = "LearnableEmbedding"
+#out_features = 64
 
 [[net.layers]]
 type = "Linear"
-out_features = 128
+out_features = 32
 [[net.layers]]
 type = "ReLU"
-out_features = 128
+out_features = 32
 
 [[net.layers]]
 type = "Linear"
-out_features = 128
+out_features = 32
 [[net.layers]]
 type = "ReLU"
-out_features = 128
+out_features = 32
 
 [[net.layers]]
 type = "Linear"
-out_features = 128
+out_features = 32
 [[net.layers]]
 type = "ReLU"
-out_features = 128
+out_features = 32
 
 [[net.layers]]
 type = "Linear"
-out_features = 128
+out_features = 32
 [[net.layers]]
 type = "ReLU"
-out_features = 128
+out_features = 32
 
 [[net.layers]]
 type = "Linear"
