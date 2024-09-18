@@ -1,11 +1,11 @@
 
 [train]
-image_path = "data/kodak-dataset/kodim05.png"
+image_path = "tests/edges_output.jpg"
 learning_rate = 0.001
-num_steps = 100
+num_steps = 1000
 num_epochs = 1
 patience = 600
-scheduler_step_size = 1000
+scheduler_step_size = 100
 scheduler_gamma = 0.9
 target_loss = 0.001
 
@@ -16,16 +16,16 @@ loss_type = "MSELoss"
 
 [save]
 net_save_path = "res"
-net_name = "new_net.pth"
+net_name = "best_model"
 base_output_path = "res"
 image_save_path = "res"
 
 [misc]
-log_save_path = "logs"
+log_save_path = "mlruns"
 
 
 [net]
-#num_frequencies = 10
+num_frequencies = 10
 #upsample = false
 
 #[[net.layers]]

@@ -9,7 +9,7 @@ from src.utils.log import logger
 
 
 class ConfigurableINRModel(nn.Module):
-    def __init__(self, net_config: NetConfig, in_features=None):
+    def __init__(self, net_config: NetConfig, in_features=None,out_features=None):
         super().__init__()
 
         self.layers = nn.ModuleList()
@@ -19,34 +19,36 @@ class ConfigurableINRModel(nn.Module):
             in_features = net_config.in_features
         else:
             logger.info(f'模型初始化时输入维度: {in_features}')
-        for layer_config in net_config.layers:
+        for layer_index,layer_config in enumerate(net_config.layers):
             layer_type = layer_config.type
             layer_class = LayerRegistry.get(layer_type)
             if layer_class is None:
                 raise ValueError(f"Unsupported layer type: {layer_type}")
 
-            # layer_params = {k: v for k, v in layer_config.model_config.items() if k != 'type'}
-
-            # if 'in_features' not in layer_params and 'in_channels' not in layer_params:
-            #     # 如果 layer_type 包含 'Conv' 则默认 in_channels=in_features
-            #     if 'conv' in layer_type.lower():
-            #         layer_params['in_channels'] = in_features
-            #     else:
-            #         layer_params['in_features'] = in_features
             if layer_config.in_features is None:
                 layer_config.in_features = in_features
 
             items = layer_config.model_dump().items()
             layer_params = {k: v for k, v in items if k != 'type'}
+
+            if layer_index == len(net_config.layers) - 1:
+                if  out_features is not None:
+                    logger.info(f'模型初始化时输出维度: {out_features}')
+                    layer_params['out_features'] = out_features
+                else:
+                    logger.info(f'模型初始化时未传入输出维度,使用配置文件中的配置')
+
             layer = layer_class(**layer_params)
             self.layers.append(layer)
-
             if hasattr(layer, 'out_features'):
                 in_features = layer.out_features
             elif hasattr(layer, 'out_channels'):
                 in_features = layer.out_channels
             else:
                 in_features = layer.out_features
+
+
+
 
     def forward(self, x):
         for layer in self.layers:

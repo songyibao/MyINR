@@ -2,6 +2,7 @@
 # dataset = ImageDataset(config['data_path'])
 # dataloader = DataLoader(dataset, batch_size=config['batch_size'], shuffle=True)
 # 实现上面的ImageDataset
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from PIL import Image
@@ -12,11 +13,15 @@ from torchvision.transforms import ToTensor
 from src.configs.config import MyConfig
 from src.models.inputs import positional_encoding
 
-def upsample_image(img,scale_factor=3):
+def upsample_image(img,scale_factor=2):
     h, w, c = img.shape
     upsampled_img = np.zeros((scale_factor * h, scale_factor * w, c), dtype=img.dtype)
     upsampled_img[::scale_factor, ::scale_factor, :] = img
     return upsampled_img
+def downsample_image(img, scale_factor=2):
+    h, w, c = img.shape
+    downsampled_img = img[::scale_factor, ::scale_factor, :]
+    return downsampled_img
 
 def get_coords(h, w):
     y_coords, x_coords = torch.meshgrid(
@@ -27,7 +32,7 @@ def get_coords(h, w):
 
 
 class ImageCompressionDataset(Dataset):
-    def __init__(self, config: MyConfig,mode:str = 'train'):
+    def __init__(self, config: MyConfig,mode:str = 'test'):
         """
         初始化自定义数据集。
 
@@ -35,15 +40,29 @@ class ImageCompressionDataset(Dataset):
         - image_path (str): 图像文件的路径。
         """
         self.config = config
-        # 加载彩色图像并转换为 RGB 模式
-        self.img = Image.open(config.train.image_path).convert('RGB')
+        # 加载图像
+        self.img = Image.open(config.train.image_path)
+        self.channels = -1
+        # 判断图像的通道数
+        if self.img.mode == 'RGB':
+            self.channels = 3
+        elif self.img.mode == 'L':
+            self.channels = 1
+        else:
+            self.channels = len(self.img.getbands())
+            if self.channels == 4:  # 如果是RGBA，转换为RGB
+                self.img = self.img.convert('RGB')
+                self.channels = 3
+            else:
+                raise ValueError(f"Unsupported image mode: {self.img.mode}")
         self.img_tensor = ToTensor()(self.img)  # 转换为 PyTorch 张量，形状为 (3, H, W)
         # 转换为 NumPy 数组
-        self.img_array = np.array(self.img)
+        # self.img_array = self.img_tensor.numpy().transpose(1, 2, 0)
         # 上采样
-        self.upsampled_img_array = upsample_image(self.img_array)
+        # self.upsampled_img_array = upsample_image(self.img_array)
         # 转换回 PIL 图像（如果需要）
-        self.upsampled_img = Image.fromarray(self.upsampled_img_array)
+        # self.upsampled_img = Image.fromarray(self.upsampled_img_array)
+        self.mode = mode
         # 保存或显示上采样后的图像
         # 获取图像的宽、高信息
         self.h, self.w = self.img_tensor.shape[1], self.img_tensor.shape[2]
@@ -51,8 +70,18 @@ class ImageCompressionDataset(Dataset):
         self.coords = get_coords(self.h,self.w)  # 转换为 (h * w, 2)
 
         # 获取图像的像素值，形状为 (h * w, 3)
-        self.pixels = self.img_tensor.permute(1, 2, 0).view(-1, 3)  # 转换为 (h * w, 3)
-        self.mode = mode
+        self.pixels = self.img_tensor.permute(1, 2, 0).view(-1, self.channels)
+
+        # self.h, self.w = self.upsampled_img_array.shape[:2]
+        # self.coords = get_coords(self.h,self.w)
+        # self.pixels = ToTensor()(self.upsampled_img).permute(1, 2, 0).view(-1, self.channels)
+
+        if self.config.net.layers[0].type == 'LearnableEmbedding':
+            self.coords = torch.arange(self.h*self.w).long()
+        elif self.config.net.num_frequencies is not None:
+            self.coords = positional_encoding(self.coords, num_frequencies=self.config.net.num_frequencies)
+
+
     def __len__(self):
         """
         返回数据集中样本的数量。
@@ -75,12 +104,5 @@ class ImageCompressionDataset(Dataset):
         - 坐标网格（形状为 (h * w, 2)）
         - 图像像素值（形状为 (h * w, 3)）
         """
-
-        # 判断是否有 num_frequencies 这个key
-        if self.config.net.layers[0].type == 'LearnableEmbedding':
-            return torch.arange(self.h*self.w).long(), self.pixels, self.h, self.w
-        elif self.config.net.num_frequencies is None:
-            return self.coords, self.pixels, self.h, self.w
-        else:
-            return positional_encoding(self.coords, num_frequencies=self.config.net.num_frequencies), self.pixels, self.h, self.w
+        return self.coords, self.pixels, self.h, self.w, self.channels
 

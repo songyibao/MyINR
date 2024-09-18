@@ -59,8 +59,6 @@ def create_comparison_image(original_image, reconstructed_image, save_path: str)
 def decompress_and_save(inr_model, config: MyConfig, base_output_path: str, model_input:torch.Tensor=None, original_image:torch.Tensor=None):
     # 创建本次实验目录
     experiment_dir = create_experiment_directory(base_output_path)
-    global_config_dict = config.model_config
-    model_config_dict = config.net.model_config
 
     # 使用CPU模式并设置模型为评估模式
     # inr_model = inr_model.to('cpu').eval()
@@ -69,18 +67,18 @@ def decompress_and_save(inr_model, config: MyConfig, base_output_path: str, mode
     dataset = ImageCompressionDataset(config)
     dataset.img.save(os.path.join(experiment_dir, 'original_image.png'))
     if model_input is None or original_image is None:
-        coords, original_image, h, w = dataset[0]
-        original_image = original_image.view(h, w, 3)
+        coords, original_image, h, w,c = dataset[0]
+        original_image = original_image.view(h, w, c)
         model_input = coords.to(device)
         original_image = original_image.to(device)
     else:
-        h,w = original_image.shape[0],original_image.shape[1]
+        h,w,c = original_image.shape[0],original_image.shape[1],original_image.shape[2]
     logger.info(f"原图像形状{original_image.shape}")
     # 计算模型输出
     logger.info("计算模型输出")
     with torch.no_grad():
         # [h*w,3]
-        output_image = inr_model(model_input).view(h, w, 3)
+        output_image = inr_model(model_input).view(h, w, c)
 
     # 计算评估指标
     logger.info("计算原图像和重建图像psnr和ssim")
@@ -111,12 +109,12 @@ def decompress_and_save(inr_model, config: MyConfig, base_output_path: str, mode
 
     # 保存配置文件
     config_file_path = os.path.join(experiment_dir, 'config.toml')
-    save_config_to_toml(global_config_dict, config_file_path)
+    save_config_to_toml(config.model_dump(), config_file_path)
 
     # 创建并保存实验摘要
     exp_summary = {
         "Timestamp": datetime.datetime.now().isoformat(),
-        "Model Configuration": model_config_dict,
+        "Model Configuration": config.net.model_dump(),
         "Evaluation Results": result,
         "Original Image": original_image_path,
         "Reconstructed Image": img_save_path,
@@ -142,7 +140,7 @@ def decompress_and_save(inr_model, config: MyConfig, base_output_path: str, mode
 if os.getenv('MODE',"TRAIN").upper()=="SINGLE":
     config = MyConfig.get_instance()
     dataset = ImageCompressionDataset(config.train.image_path)
-    coords, pixels,_,_ = dataset[0]
+    coords, pixels,_,_,_ = dataset[0]
     model = ConfigurableINRModel(config.model.model_config, in_features=coords.shape[-1])
     model_path = os.path.join(config.save.model_save_path,config.save.model_name)
     model.load_state_dict(torch.load(model_path.__str__(),weights_only=True,map_location=torch.device('cpu')))

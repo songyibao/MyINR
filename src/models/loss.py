@@ -74,10 +74,14 @@ class EdgeLoss(nn.Module):
         grayscale_image = 0.299 * r + 0.587 * g + 0.114 * b
         return grayscale_image
     def edge_loss(self,output_image, target_image):
-        output_image = output_image.permute(2, 0, 1).unsqueeze(0).float()
-        target_image = target_image.permute(2, 0, 1).unsqueeze(0).float()
-        output_image = self.rgb_to_grayscale(output_image)
-        target_image = self.rgb_to_grayscale(target_image)
+        is_rgb = False
+        if output_image.shape[-1] == 3:
+            is_rgb = True
+        output_image = output_image.permute(2, 0, 1).unsqueeze(0)
+        target_image = target_image.permute(2, 0, 1).unsqueeze(0)
+        if is_rgb:
+            output_image = self.rgb_to_grayscale(output_image)
+            target_image = self.rgb_to_grayscale(target_image)
         # 使用 Sobel 算子来计算图像的梯度（边缘信息）
         sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32,
                                device=output_image.device).unsqueeze(0).unsqueeze(0)
@@ -101,11 +105,15 @@ class EdgeLoss(nn.Module):
 
 
 @LossRegistry.register("SSIMLoss")
-class SSIMLoss(nn.Module):
+class MySSIMLoss(nn.Module):
     def __init__(self):
-        super(SSIMLoss, self).__init__()
+        super(MySSIMLoss, self).__init__()
         self.ssim_loss = SSIMLoss(data_range=1.)
     def forward(self, output_image, target_image):
+        output_image = output_image.permute(2, 0, 1).unsqueeze(0)
+        target_image = target_image.permute(2, 0, 1).unsqueeze(0)
+        output_image = torch.clamp(output_image, 0, 1)
+        target_image = torch.clamp(target_image, 0, 1)
         return self.ssim_loss(output_image, target_image)
 
 @LossRegistry.register("MSELoss")

@@ -11,20 +11,16 @@ from src.utils.device import global_device
 from src.utils.log import logger
 
 
-def test(config: MyConfig,deivce: torch.device = global_device):
-
+def test(config: MyConfig=MyConfig.get_instance(), device: torch.device=global_device):
     logger.info(f'模型配置:{config.net.model_config}')
     logger.info("加载和预处理图像")
     dataset = ImageCompressionDataset(config)
     logger.info(f"创建坐标网格(包含位置编码)")
-    coords, original_image, h, w = dataset[0]
+    coords, original_pixels, h, w, c = dataset[0]
     logger.info(f'{coords.shape}')
-    coords, original_image = coords.to(deivce), original_image.to(deivce)
-    original_image = original_image.view(h, w, 3).to(device)
-    inr_model = ConfigurableINRModel(config.net, in_features=coords.shape[-1])
+    original_image = original_pixels.view(h, w, c)
+    inr_model = ConfigurableINRModel(config.net, in_features=coords.shape[-1], out_features=c)
     summary(inr_model, input_data=coords.to('cpu'))
-
-
 
     # 训练模型
     trained_inr_model = train_inr(model_input=coords, target_image=original_image, model=inr_model, device=device,
@@ -40,18 +36,15 @@ def test(config: MyConfig,deivce: torch.device = global_device):
     # logger.info("保存模型到wandb")
 
     logger.info("加载模型")
-    model = ConfigurableINRModel(config.net, in_features=coords.shape[-1])
+    model = ConfigurableINRModel(config.net, in_features=coords.shape[-1], out_features=c)
     model.load_state_dict(
         torch.load(os.path.join(config.save.net_save_path, config.save.net_name).__str__(), weights_only=True,
                    map_location=device))
     decompress_and_save(inr_model=model, base_output_path=config.save.base_output_path,
-                        config=global_config)
+                        config=config)
 
     # 保存生成的图像到wandb
     # logger.info("保存生成的图像到wandb")
 
 
-device = global_device
-global_config = MyConfig.get_instance()
-
-test(global_config,global_device)
+test()

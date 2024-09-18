@@ -26,6 +26,9 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
 
     logger.info(f"运行设备：{device}")
     model = model.to(device)
+    model_input = model_input.to(device)
+    target_image = target_image.to(device)
+
 
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = StepLR(optimizer, step_size=train_config.scheduler_step_size, gamma=train_config.scheduler_gamma)
@@ -74,8 +77,8 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
                 "Max Patience": f'{max_patience_counter:>4}'
             }
 
-            evaluate_res = evaluate_tensor_h_w_3(target_image, torch.clamp(output_image, 0, 1))
-            update_value.update(evaluate_res)
+            # evaluate_res = evaluate_tensor_h_w_3(target_image, torch.clamp(output_image, 0, 1))
+            # update_value.update(evaluate_res)
             pbar.set_postfix(update_value)
             pbar.update()
 
