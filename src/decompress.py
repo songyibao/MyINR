@@ -4,8 +4,6 @@ import platform
 
 import toml
 import torch
-from numpy.distutils.command.config import config
-from torch.backends.mkl import verbose
 from torchinfo import summary
 
 from src.utils.data_loader import ImageCompressionDataset
@@ -68,12 +66,13 @@ def decompress_and_save(inr_model, config: MyConfig, base_output_path: str, mode
     # inr_model = inr_model.to('cpu').eval()
     device = next(inr_model.parameters()).device
     original_image_path = config.train.image_path
-    dataset = ImageCompressionDataset(original_image_path)
+    dataset = ImageCompressionDataset(config)
     dataset.img.save(os.path.join(experiment_dir, 'original_image.png'))
     if model_input is None or original_image is None:
         coords, original_image, h, w = dataset[0]
         original_image = original_image.view(h, w, 3)
         model_input = coords.to(device)
+        original_image = original_image.to(device)
     else:
         h,w = original_image.shape[0],original_image.shape[1]
     logger.info(f"原图像形状{original_image.shape}")
@@ -87,7 +86,7 @@ def decompress_and_save(inr_model, config: MyConfig, base_output_path: str, mode
     logger.info("计算原图像和重建图像psnr和ssim")
 
     with torch.no_grad():
-        result=evaluate_tensor_h_w_3(original_image, torch.clamp(output_image, 0, 1),global_device)
+        result=evaluate_tensor_h_w_3(original_image, torch.clamp(output_image, 0, 1))
     # 计算bpp
     logger.info("计算 bpp")
     bpp = calculate_bpp(original_image,inr_model)
@@ -121,16 +120,17 @@ def decompress_and_save(inr_model, config: MyConfig, base_output_path: str, mode
         "Evaluation Results": result,
         "Original Image": original_image_path,
         "Reconstructed Image": img_save_path,
-        "Comparison Image": comparison_image_path
+        "Comparison Image": comparison_image_path,
+        "loss":result['MS-SSIM']
     }
-    s_str = str(summary(inr_model, input_data=coords.to('cpu'),verbose=0))
+    s_str = str(summary(inr_model, input_data=coords.to(device),verbose=0))
     exp_summary.update({"Model Summary": s_str})
 
     summary_path = os.path.join(experiment_dir, 'experiment_summary.txt')
     save_experiment_summary(exp_summary, summary_path)
 
     logger.info(f'实验结果已保存到目录: {experiment_dir}')
-    return experiment_dir
+    return exp_summary
 
 
 

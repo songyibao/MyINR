@@ -16,7 +16,7 @@ from src.utils.log import logger
 
 def train_inr(model_input, target_image, model, train_config: TrainConfig, device=global_device):
     learning_rate = train_config.learning_rate
-    num_epochs = train_config.num_epochs
+    num_steps = train_config.num_steps
     patience = train_config.patience
 
     best_val_loss = np.inf
@@ -33,8 +33,8 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
     loss_class = LossRegistry.get(train_config.loss_type)
     criterion = loss_class()
 
-    with tqdm(total=num_epochs, desc=f"Training:") as pbar:
-        for epoch in range(num_epochs):
+    with tqdm(total=num_steps, desc=f"Training:") as pbar:
+        for epoch in range(num_steps):
             optimizer.zero_grad()
 
             output = model(model_input)
@@ -66,7 +66,7 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
                 break
 
             update_value = {
-                "Epoch": f'{epoch + 1:<{len(str(num_epochs))}}/{num_epochs}',
+                "Epoch": f'{epoch + 1:<{len(str(num_steps))}}/{num_steps}',
                 "LR": f'{scheduler.get_last_lr()[0]:.6f}',
                 "Loss": f'{loss.item():.4f}',
                 "Patience": f'{patience_counter:<{len(str(patience))}}/{patience}',
@@ -74,7 +74,7 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
                 "Max Patience": f'{max_patience_counter:>4}'
             }
 
-            evaluate_res = evaluate_tensor_h_w_3(target_image, torch.clamp(output_image, 0, 1), device)
+            evaluate_res = evaluate_tensor_h_w_3(target_image, torch.clamp(output_image, 0, 1))
             update_value.update(evaluate_res)
             pbar.set_postfix(update_value)
             pbar.update()
@@ -83,7 +83,7 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
     model.load_state_dict(best_model_state)
     output = model(model_input)
     output_image = output.view(target_image.shape)
-    evaluate_res = evaluate_tensor_h_w_3(target_image, torch.clamp(output_image, 0, 1), device)
+    evaluate_res = evaluate_tensor_h_w_3(target_image, torch.clamp(output_image, 0, 1))
     logger.info(evaluate_res)
 
     return model

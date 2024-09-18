@@ -2,9 +2,10 @@
 [train]
 image_path = "data/kodak-dataset/kodim05.png"
 learning_rate = 0.001
-num_epochs = 10
+num_steps = 100
+num_epochs = 1
 patience = 600
-scheduler_step_size = 100
+scheduler_step_size = 1000
 scheduler_gamma = 0.9
 target_loss = 0.001
 
@@ -24,40 +25,40 @@ log_save_path = "logs"
 
 
 [net]
-num_frequencies = 10
+#num_frequencies = 10
 #upsample = false
 
 #[[net.layers]]
 #type = "LearnableEmbedding"
-#out_features = 64
+#out_features = 8
 
 [[net.layers]]
 type = "Linear"
-out_features = 32
+out_features = 128
 [[net.layers]]
 type = "ReLU"
-out_features = 32
+out_features = 128
 
 [[net.layers]]
 type = "Linear"
-out_features = 32
+out_features = 128
 [[net.layers]]
 type = "ReLU"
-out_features = 32
+out_features = 128
 
 [[net.layers]]
 type = "Linear"
-out_features = 32
+out_features = 128
 [[net.layers]]
 type = "ReLU"
-out_features = 32
+out_features = 128
 
 [[net.layers]]
 type = "Linear"
-out_features = 32
+out_features = 128
 [[net.layers]]
 type = "ReLU"
-out_features = 32
+out_features = 128
 
 [[net.layers]]
 type = "Linear"

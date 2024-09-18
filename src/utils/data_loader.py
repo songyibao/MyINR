@@ -27,16 +27,16 @@ def get_coords(h, w):
 
 
 class ImageCompressionDataset(Dataset):
-    def __init__(self, image_path):
+    def __init__(self, config: MyConfig,mode:str = 'train'):
         """
         初始化自定义数据集。
 
         参数:
         - image_path (str): 图像文件的路径。
         """
-        self.config = MyConfig.get_instance()
+        self.config = config
         # 加载彩色图像并转换为 RGB 模式
-        self.img = Image.open(image_path).convert('RGB')
+        self.img = Image.open(config.train.image_path).convert('RGB')
         self.img_tensor = ToTensor()(self.img)  # 转换为 PyTorch 张量，形状为 (3, H, W)
         # 转换为 NumPy 数组
         self.img_array = np.array(self.img)
@@ -52,12 +52,17 @@ class ImageCompressionDataset(Dataset):
 
         # 获取图像的像素值，形状为 (h * w, 3)
         self.pixels = self.img_tensor.permute(1, 2, 0).view(-1, 3)  # 转换为 (h * w, 3)
-
+        self.mode = mode
     def __len__(self):
         """
         返回数据集中样本的数量。
         """
-        return 1  # 只有一张图像
+        if self.mode == 'train':
+            return self.config.train.num_steps
+        elif self.mode == 'test':
+            return 1
+        else:
+            raise ValueError(f"Invalid mode: {self.mode}, must be 'train' or 'test'")
 
     def __getitem__(self, idx):
         """
@@ -74,8 +79,8 @@ class ImageCompressionDataset(Dataset):
         # 判断是否有 num_frequencies 这个key
         if self.config.net.layers[0].type == 'LearnableEmbedding':
             return torch.arange(self.h*self.w).long(), self.pixels, self.h, self.w
-        if self.config.net.num_frequencies is None:
+        elif self.config.net.num_frequencies is None:
             return self.coords, self.pixels, self.h, self.w
         else:
-            return positional_encoding(self.coords, num_frequencies=MyConfig.get_instance().net.num_frequencies), self.pixels, self.h, self.w
+            return positional_encoding(self.coords, num_frequencies=self.config.net.num_frequencies), self.pixels, self.h, self.w
 

@@ -15,7 +15,7 @@ def test(config: MyConfig,deivce: torch.device = global_device):
 
     logger.info(f'模型配置:{config.net.model_config}')
     logger.info("加载和预处理图像")
-    dataset = ImageCompressionDataset(config.train.image_path)
+    dataset = ImageCompressionDataset(config)
     logger.info(f"创建坐标网格(包含位置编码)")
     coords, original_image, h, w = dataset[0]
     logger.info(f'{coords.shape}')

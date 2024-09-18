@@ -3,3 +3,4 @@ wandb
 res/experiment_*
 res/model/*.pth
 res/net/*.pth
+tests/lightning_logs

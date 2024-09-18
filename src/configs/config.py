@@ -15,13 +15,14 @@ class LayerConfig(BaseModel):
     out_features: int
 
 class NetConfig(BaseModel):
-    num_frequencies: Optional[int]
+    num_frequencies: Optional[int] = None
     layers: List[LayerConfig]
     in_features: Optional[int] = None
 
 class TrainConfig(BaseModel):
     image_path: str
     learning_rate: float
+    num_steps: int
     num_epochs: int
     patience: int
     scheduler_step_size: int
@@ -50,14 +51,13 @@ class SaveConfig(BaseModel):
     base_output_path: str
     image_save_path: str
 
-    @field_validator('*', mode='before')
+    @field_validator('net_save_path','base_output_path','image_save_path', mode='before')
     @classmethod
     def validate_paths(cls, v):
-        if v.endswith('_path'):
-            v = os.path.join(project_root_path, v)
-            if not os.path.exists(v):
-                os.makedirs(v)
-        return v
+        full_path = os.path.join(project_root_path, v)
+        if not os.path.exists(full_path):
+            os.makedirs(full_path)
+        return full_path
 
 class MiscConfig(BaseModel):
     log_save_path: str

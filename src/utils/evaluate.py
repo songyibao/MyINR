@@ -281,13 +281,13 @@ def evaluate_tensor(original_image: torch.Tensor, compressed_image: torch.Tensor
         'PSNR': f'{psnr:.4f}',  # 固定保留4位小数
         'MS-SSIM': f'{msssim:.6f}'  # 固定保留6位小数
     }
-def evaluate_tensor_h_w_3(original_image: torch.Tensor, compressed_image: torch.Tensor,device:torch.device) -> dict:
+def evaluate_tensor_h_w_3(original_image: torch.Tensor, compressed_image: torch.Tensor) -> dict:
     # 转换成 [1,C,H,W]
-    x = original_image.permute(2, 0, 1).unsqueeze(0).to(device).float()
-    y = compressed_image.permute(2, 0, 1).unsqueeze(0).to(device).float()
+    x = original_image.permute(2, 0, 1).unsqueeze(0)
+    y = compressed_image.permute(2, 0, 1).unsqueeze(0)
     psnr = piq.psnr(x, y, data_range=1.)
     msssim = piq.multi_scale_ssim(x, y, data_range=1.)
     return {
-        'PSNR': f'{psnr:.6f}',  # 固定保留4位小数
-        'MS-SSIM': f'{msssim:.6f}'  # 固定保留6位小数
+        'PSNR': psnr.item(),  # 固定保留4位小数
+        'MS-SSIM': msssim.item()  # 固定保留6位小数
     }
