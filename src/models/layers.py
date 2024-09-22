@@ -497,6 +497,23 @@ class Conv2dLayer(nn.Module):
     def forward(self, x):
         return self.conv(x)
 
+@LayerRegistry.register('Conv2dPE')
+class HierarchicalPositionalEncoding(nn.Module):
+    def __init__(self, in_features=2, base_dim=16, out_features=32, num_layers=4):
+        super(HierarchicalPositionalEncoding, self).__init__()
+        self.initial_layer = nn.Linear(in_features, base_dim)
+        self.layers = nn.ModuleList([nn.Linear(base_dim * 2**i, base_dim * 2**(i+1)) for i in range(num_layers)])
+        self.final_layer = nn.Linear(base_dim * 2**num_layers, out_features)
+        self.activation = nn.ReLU()
+        self.in_features = in_features
+        self.out_features = out_features
+
+    def forward(self, coords):
+        z = self.activation(self.initial_layer(coords))
+        for layer in self.layers:
+            z = self.activation(layer(z))
+        return self.final_layer(z)
+
 @LayerRegistry.register('ReLU')
 class ReLULayer(nn.Module):
     def __init__(self,in_features: int, out_features: int):

@@ -1,5 +1,3 @@
-import copy
-
 import numpy as np
 import torch
 import torch.optim as optim
@@ -11,7 +9,6 @@ from src.models.loss import LossRegistry
 from src.utils.device import global_device
 from src.utils.evaluate import evaluate_tensor_h_w_3
 from src.utils.log import logger
-
 
 
 def train_inr(model_input, target_image, model, train_config: TrainConfig, device=global_device):

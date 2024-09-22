@@ -2,10 +2,7 @@ toml
 tqdm
 matplotlib
 sympy
-pytorch_msssim
 piq
 imageio
-pyqt6
-pyqt6-sip
 torchinfo
 pydantic

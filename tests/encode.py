@@ -12,7 +12,7 @@ from src.utils.log import logger
 
 
 def test(config: MyConfig=MyConfig.get_instance(), device: torch.device=global_device):
-    logger.info(f'模型配置:{config.net.model_config}')
+    logger.info(f'模型配置:{config.net.model_dump()}')
     logger.info("加载和预处理图像")
     dataset = ImageCompressionDataset(config)
     logger.info(f"创建坐标网格(包含位置编码)")

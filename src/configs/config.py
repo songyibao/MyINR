@@ -71,12 +71,20 @@ class MiscConfig(BaseModel):
         return full_path
 
 class MyConfig(BaseModel):
+    mode: str
     train: TrainConfig
     save: SaveConfig
     misc: MiscConfig
     net: NetConfig
 
     _instance: ClassVar[Optional['MyConfig']] = None  # 标记为类变量
+
+    @field_validator('mode', mode='before')
+    @classmethod
+    def validate_mode(cls, v):
+        if v not in ['RGB', 'L']:
+            raise ValueError(f"Invalid image mode: {v}, must be 'RGB' or 'L'")
+        return v
 
     @classmethod
     def get_instance(cls):

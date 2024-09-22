@@ -29,6 +29,7 @@ class VGGPerceptualLoss(nn.Module):
             param.requires_grad = False  # 冻结 VGG19 的权重
 
     def forward(self, x, y):
+        self.vgg = self.vgg
         # 确保输入是四维张量 [batch_size, channels, height, width]
         if x.dim() != 4 or y.dim() != 4:
             # print(f"输入必须是四维张量 [batch_size, channels, height, width], 但是输入的维度是: {x.shape}, y={x.shape}")
@@ -128,7 +129,7 @@ class MSELoss(nn.Module):
 class SSIMandEdgeLoss(nn.Module):
     def __init__(self, edge_loss_weight=0.05, ssim_loss_weight=0.1):
         super(SSIMandEdgeLoss, self).__init__()
-        self.ssim_loss = SSIMLoss()
+        self.ssim_loss = MySSIMLoss()
         self.edge_loss = EdgeLoss()
         self.edge_loss_weight = edge_loss_weight
         self.ssim_loss_weight = ssim_loss_weight
@@ -143,11 +144,11 @@ class SSIMandEdgeLoss(nn.Module):
 
 @LossRegistry.register("FullCombinedLoss")
 class FullCombinedLoss(nn.Module):
-    def __init__(self, perceptual_loss_weight=0.1, edge_loss_weight=0.05, ssim_loss_weight=0.1):
+    def __init__(self, perceptual_loss_weight=1.0, edge_loss_weight=0.0, ssim_loss_weight=0.0):
         super(FullCombinedLoss, self).__init__()
         self.perceptual_loss = VGGPerceptualLoss()
         self.mse_loss = nn.MSELoss()
-        self.ssim_loss = SSIMLoss()
+        self.ssim_loss = MySSIMLoss()
         self.edge_loss = EdgeLoss()
         self.perceptual_loss_weight = perceptual_loss_weight
         self.edge_loss_weight = edge_loss_weight

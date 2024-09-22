@@ -41,7 +41,7 @@ class ImageCompressionDataset(Dataset):
         """
         self.config = config
         # 加载图像
-        self.img = Image.open(config.train.image_path)
+        self.img = Image.open(config.train.image_path).convert(MyConfig.get_instance().mode)
         self.channels = -1
         # 判断图像的通道数
         if self.img.mode == 'RGB':

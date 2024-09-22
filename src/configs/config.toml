@@ -1,4 +1,4 @@
-
+mode = "L"
 [train]
 image_path = "data/kodak-dataset/kodim05.png"
 learning_rate = 0.001
@@ -32,12 +32,8 @@ num_frequencies = 10
 #type = "LearnableEmbedding"
 #out_features = 8
 
-[[net.layers]]
-type = "Linear"
-out_features = 128
-[[net.layers]]
-type = "ReLU"
-out_features = 128
+
+
 
 [[net.layers]]
 type = "Linear"
