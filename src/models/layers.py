@@ -524,6 +524,27 @@ class ReLULayer(nn.Module):
     def forward(self, x):
         return self.relu(x)
 
+@torch.jit.script
+def bspline_wavelet(x, scale):
+    return (1 / 6) * F.relu(scale*x) \
+        - (8 / 6) * F.relu(scale*x - (1 / 2)) \
+        + (23 / 6) * F.relu(scale*x - (1)) \
+        - (16 / 3) * F.relu(scale*x - (3 / 2)) \
+        + (23 / 6) * F.relu(scale*x - (2)) \
+        - (8 / 6) * F.relu(scale*x - (5 / 2)) \
+        +(1 / 6) * F.relu(scale*x - (3))
+@LayerRegistry.register('BWNonlin')
+class BSplineWavelet(nn.Module):
+    def __init__(self, in_features: int, out_features: int,scale=torch.as_tensor(1)):
+        super().__init__()
+        self.scale = torch.as_tensor(scale)
+        self.in_features = in_features
+        self.out_features = out_features
+
+    def forward(self, x):
+        output = bspline_wavelet(x, self.scale)
+
+        return output
 @LayerRegistry.register('LeakyReLU')
 class LeakyReLULayer(nn.Module):
     def __init__(self, in_features: int, out_features: int,negative_slope: float = 0.01):
