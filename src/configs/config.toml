@@ -1,6 +1,6 @@
 
 [train]
-image_path = "tests/edges_output.jpg"
+image_path = "data/kodak-dataset/kodim05.png"
 learning_rate = 0.001
 num_steps = 1000
 num_epochs = 1

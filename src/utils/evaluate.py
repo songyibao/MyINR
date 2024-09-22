@@ -1,11 +1,9 @@
 from typing import Dict
-import piq
+
 import numpy as np
+import piq
 import torch
-from PIL import Image
-from pytorch_msssim import ssim, ms_ssim, SSIM, MS_SSIM
 from torch._C import dtype
-import imageio.v3 as iio
 
 DTYPE_BIT_SIZE: Dict[dtype, int] = {
     torch.float32: 32,
@@ -31,8 +29,6 @@ DTYPE_BIT_SIZE: Dict[dtype, int] = {
 }
 
 
-
-
 def model_size_in_bits(model):
     """Calculate total number of bits to store `model` parameters and buffers."""
     return sum(sum(t.nelement() * DTYPE_BIT_SIZE[t.dtype] for t in tensors)
@@ -49,6 +45,7 @@ def calculate_bpp(image: torch.Tensor, model: torch.nn.Module):
     num_pixels = np.prod(image.shape) / 3  # Dividing by 3 because of RGB channels
     return model_size_in_bits(model=model) / num_pixels
 
+
 def evaluate_tensor_h_w_3(original_image: torch.Tensor, compressed_image: torch.Tensor) -> dict:
     # 转换成 [1,C,H,W]
     x = original_image.permute(2, 0, 1).unsqueeze(0)
@@ -56,6 +53,6 @@ def evaluate_tensor_h_w_3(original_image: torch.Tensor, compressed_image: torch.
     psnr = piq.psnr(x, y, data_range=1.)
     msssim = piq.multi_scale_ssim(x, y, data_range=1.)
     return {
-        'PSNR': psnr.item(),  # 固定保留4位小数
-        'MS-SSIM': msssim.item()  # 固定保留6位小数
+        'PSNR': round(psnr.item(), 2),
+        'MS-SSIM': round(msssim.item(), 2)
     }
