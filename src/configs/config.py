@@ -19,6 +19,11 @@ class NetConfig(BaseModel):
     layers: List[LayerConfig]
     in_features: Optional[int] = None
 
+class PeNetConfig(BaseModel):
+    num_frequencies: Optional[int] = None
+    layers: List[LayerConfig]
+    in_features: Optional[int] = None
+
 class TrainConfig(BaseModel):
     image_path: str
     learning_rate: float
@@ -76,6 +81,7 @@ class MyConfig(BaseModel):
     save: SaveConfig
     misc: MiscConfig
     net: NetConfig
+    pe_net: Optional[PeNetConfig] = None
 
     _instance: ClassVar[Optional['MyConfig']] = None  # 标记为类变量
 

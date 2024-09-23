@@ -25,6 +25,11 @@ def test(config: MyConfig=MyConfig.get_instance(), device: torch.device=global_d
     # 训练模型
     trained_inr_model = train_inr(model_input=coords, target_image=original_image, model=inr_model, device=device,
                                   train_config=config.train)
+
+    learned_embedding_layer = trained_inr_model.layers[0]
+    learned_embedding = learned_embedding_layer(coords)
+    pe_model = ConfigurableINRModel(config.pe_net, in_features=coords.shape[-1], out_features=learned_embedding[-1])
+
     if not os.path.exists(config.save.base_output_path):
         os.makedirs(config.save.base_output_path)
     torch.save(trained_inr_model.state_dict(),
