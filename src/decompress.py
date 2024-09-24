@@ -121,7 +121,7 @@ def decompress_and_save(inr_model, config: MyConfig, base_output_path: str, mode
         "Comparison Image": comparison_image_path,
         "loss":result['MS-SSIM']
     }
-    s_str = str(summary(inr_model, input_data=coords.to(device),verbose=0))
+    s_str = str(summary(inr_model, input_data=model_input.to(device),verbose=0))
     exp_summary.update({"Model Summary": s_str})
 
     summary_path = os.path.join(experiment_dir, 'experiment_summary.txt')

@@ -16,13 +16,11 @@ class LayerConfig(BaseModel):
 
 class NetConfig(BaseModel):
     num_frequencies: Optional[int] = None
+    degree: Optional[int] = None
     layers: List[LayerConfig]
     in_features: Optional[int] = None
+    ffm_out_features: Optional[int] = None
 
-class PeNetConfig(BaseModel):
-    num_frequencies: Optional[int] = None
-    layers: List[LayerConfig]
-    in_features: Optional[int] = None
 
 class TrainConfig(BaseModel):
     image_path: str
@@ -81,7 +79,7 @@ class MyConfig(BaseModel):
     save: SaveConfig
     misc: MiscConfig
     net: NetConfig
-    pe_net: Optional[PeNetConfig] = None
+    pe_net: Optional[NetConfig] = None
 
     _instance: ClassVar[Optional['MyConfig']] = None  # 标记为类变量
 

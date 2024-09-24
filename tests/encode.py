@@ -5,8 +5,8 @@ from torchinfo import summary
 from src.configs.config import MyConfig
 from src.decompress import decompress_and_save
 from src.models.model1 import ConfigurableINRModel
-from src.train import train_inr
-from src.utils.data_loader import ImageCompressionDataset
+from src.train import train_inr, train_pe_inr
+from src.utils.data_loader import ImageCompressionDataset, get_coords
 from src.utils.device import global_device
 from src.utils.log import logger
 
@@ -27,8 +27,16 @@ def test(config: MyConfig=MyConfig.get_instance(), device: torch.device=global_d
                                   train_config=config.train)
 
     learned_embedding_layer = trained_inr_model.layers[0]
-    learned_embedding = learned_embedding_layer(coords)
-    pe_model = ConfigurableINRModel(config.pe_net, in_features=coords.shape[-1], out_features=learned_embedding[-1])
+
+
+    learned_embedding = learned_embedding_layer(coords.to(device))
+    # 清除learned_embedding的梯度
+    learned_embedding = learned_embedding.detach()
+    torch.save(learned_embedding, os.path.join(config.save.base_output_path, 'embedding.pth').__str__())
+    # real_coords = get_coords(h, w,data_range=1)
+    # pe_model = ConfigurableINRModel(config.pe_net, in_features=real_coords.shape[-1], out_features=learned_embedding.shape[-1])
+    # trained_pe_model = train_pe_inr(model_input=real_coords, learned_embedding=learned_embedding, model=pe_model, device=device, train_config=config.train)
+    # trained_inr_model.layers[0] = trained_pe_model
 
     if not os.path.exists(config.save.base_output_path):
         os.makedirs(config.save.base_output_path)
@@ -39,14 +47,15 @@ def test(config: MyConfig=MyConfig.get_instance(), device: torch.device=global_d
 
     # 记录模型保存路径
     # logger.info("保存模型到wandb")
-
     logger.info("加载模型")
     model = ConfigurableINRModel(config.net, in_features=coords.shape[-1], out_features=c)
+    # model.layers[0] = ConfigurableINRModel(config.pe_net, in_features=real_coords.shape[-1], out_features=learned_embedding.shape[-1])
     model.load_state_dict(
         torch.load(os.path.join(config.save.net_save_path, config.save.net_name).__str__(), weights_only=True,
                    map_location=device))
+    # summary(inr_model, input_data=real_coords.to(device))
     decompress_and_save(inr_model=model, base_output_path=config.save.base_output_path,
-                        config=config)
+                        config=config,model_input=coords,original_image=original_image)
 
     # 保存生成的图像到wandb
     # logger.info("保存生成的图像到wandb")

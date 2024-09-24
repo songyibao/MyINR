@@ -9,16 +9,18 @@ from src.utils.log import logger
 
 
 class ConfigurableINRModel(nn.Module):
-    def __init__(self, net_config: NetConfig, in_features=None,out_features=None):
+    def __init__(self, net_config: NetConfig, in_features,out_features):
         super().__init__()
-
+        self.in_features = in_features
+        self.out_features = out_features
         self.layers = nn.ModuleList()
         # 判断是 in_features 参数是否传入实际值
         if in_features is None:
-            logger.info(f'模型初始化时未传入输入维度,使用配置文件中的配置: {net_config["in_features"]}')
-            in_features = net_config.in_features
-        else:
-            logger.info(f'模型初始化时输入维度: {in_features}')
+            raise ValueError("in_features 参数不能为空")
+        if out_features is None:
+            raise ValueError("out_features 参数不能为空")
+        logger.info(f"模型初始化时输入维度: {in_features}")
+        logger.info(f"模型初始化时输出维度: {out_features}")
         for layer_index,layer_config in enumerate(net_config.layers):
             layer_type = layer_config.type
             layer_class = LayerRegistry.get(layer_type)
@@ -32,11 +34,7 @@ class ConfigurableINRModel(nn.Module):
             layer_params = {k: v for k, v in items if k != 'type'}
 
             if layer_index == len(net_config.layers) - 1:
-                if  out_features is not None:
-                    logger.info(f'模型初始化时输出维度: {out_features}')
-                    layer_params['out_features'] = out_features
-                else:
-                    logger.info(f'模型初始化时未传入输出维度,使用配置文件中的配置')
+                layer_params['out_features'] = out_features
 
             layer = layer_class(**layer_params)
             self.layers.append(layer)

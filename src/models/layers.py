@@ -425,7 +425,16 @@ class Fourier_reparam_linear(nn.Module):
         output = torch.matmul(x, weight.transpose(0, 1))
         output = output + self.bias.T
         return output
-
+@LayerRegistry.register('FourierFeatureMapping')
+class FourierFeatureMapping(nn.Module):
+    def __init__(self, in_features, out_features, scale=10):
+        super(FourierFeatureMapping, self).__init__()
+        self.B = nn.Parameter(torch.randn((in_features, out_features)) * scale, requires_grad=True)
+        self.in_features = in_features
+        self.out_features = out_features*2
+    def forward(self, x):
+        x_proj = 2 * torch.pi * x @ self.B
+        return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
 
 @LayerRegistry.register('LearnableEmbedding')
 class LearnableEmbedding(nn.Module):
@@ -523,6 +532,16 @@ class ReLULayer(nn.Module):
         self.out_features = out_features
     def forward(self, x):
         return self.relu(x)
+
+@LayerRegistry.register('LeakyReLU')
+class LeakyReLULayer(nn.Module):
+    def __init__(self, in_features: int, out_features: int,negative_slope: float = 0.01):
+        super().__init__()
+        self.leaky_relu = nn.LeakyReLU(negative_slope)
+        self.in_features = in_features
+        self.out_features = out_features
+    def forward(self, x):
+        return self.leaky_relu(x)
 
 @torch.jit.script
 def bspline_wavelet(x, scale):
