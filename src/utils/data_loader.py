@@ -37,8 +37,8 @@ def get_coords(h, w, data_range: int = 1):
     x_coords, y_coords = None, None
     if data_range == 1:
         y_coords, x_coords = torch.meshgrid(
-            torch.linspace(0, 1, h, dtype=torch.float32),
-            torch.linspace(0, 1, w, dtype=torch.float32), indexing='ij'
+            torch.linspace(-1, 1, h, dtype=torch.float32),
+            torch.linspace(-1, 1, w, dtype=torch.float32), indexing='ij'
         )
     elif data_range == -1:
         y_coords, x_coords = torch.meshgrid(

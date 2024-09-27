@@ -13,6 +13,8 @@ class LayerConfig(BaseModel):
     type: str
     in_features: Optional[int] = None
     out_features: int
+    is_first: Optional[bool] = None
+    need_manual_init: Optional[bool] = None
 
 class NetConfig(BaseModel):
     num_frequencies: Optional[int] = None

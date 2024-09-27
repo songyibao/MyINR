@@ -2,17 +2,16 @@ mode = "RGB"
 [train]
 image_path = "data/kodak-dataset/kodim05.png"
 learning_rate = 0.001
-num_steps = 100
+num_steps = 10000
 num_epochs = 1
 patience = 600
 scheduler_step_size = 1000
-scheduler_gamma = 0.9
+scheduler_gamma = 0.6
 target_loss = 0.0005
 
 #loss_type = "SSIMLoss"
 #loss_type = "EdgeLoss"
 loss_type = "MSELoss"
-
 
 [save]
 net_save_path = "res"
@@ -29,30 +28,26 @@ log_save_path = "mlruns"
 #upsample = false
 #degree = 5
 #ffm_out_features = 256
-[[net.layers]]
-type = "LearnableEmbedding"
-out_features = 8
+#[[net.layers]]
+#type = "LearnableEmbedding"
+#out_features = 8
 #[[net.layers]]
 #type = "FourierFeatureMapping"
 #out_features = 256
 [[net.layers]]
-type = "Linear"
-out_features = 128
+type = "SineLayer"
+out_features = 256
+is_first = true
 [[net.layers]]
-type = "ReLU"
-out_features = 128
+type = "SineLayer"
+out_features = 256
 [[net.layers]]
-type = "Linear"
-out_features = 128
+type = "SineLayer"
+out_features = 256
 [[net.layers]]
-type = "ReLU"
-out_features = 128
-[[net.layers]]
-type = "Linear"
-out_features = 128
-[[net.layers]]
-type = "ReLU"
-out_features = 128
+type = "SineLayer"
+out_features = 256
 [[net.layers]]
 type = "Linear"
 out_features = 3
+need_manual_init = true

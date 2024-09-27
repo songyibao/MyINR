@@ -469,13 +469,17 @@ class PositionalEncoding(nn.Module):
 
 @LayerRegistry.register('Linear')
 class LinearLayer(nn.Module):
-    def __init__(self, in_features: int, out_features: int):
+    def __init__(self, in_features: int, out_features: int,need_manual_init:bool=False,hidden_omega_0:float=30.):
         super().__init__()
         self.linear = nn.Linear(in_features, out_features)
         self.in_features = in_features
         self.out_features = out_features
+        if need_manual_init is True:
+            with torch.no_grad():
+                self.linear.weight.uniform_(-np.sqrt(6 / in_features) / hidden_omega_0,np.sqrt(6 / in_features) / hidden_omega_0)
     def forward(self, x):
         return self.linear(x)
+
 @LayerRegistry.register('FinalLinear')
 class FinalLinearLayer(nn.Module):
     def __init__(self, in_features: int, out_features: int):
@@ -585,8 +589,7 @@ class SineLayer(nn.Module):
     # If is_first=False, then the weights will be divided by omega_0 so as to keep the magnitude of
     # activations constant, but boost gradients to the weight matrix (see supplement Sec. 1.5)
 
-    def __init__(self, in_features, out_features, bias=True,
-                 is_first=False, omega_0=30):
+    def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=30):
         super().__init__()
         self.omega_0 = omega_0
         self.is_first = is_first

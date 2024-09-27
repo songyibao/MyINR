@@ -30,7 +30,7 @@ class ConfigurableINRModel(nn.Module):
             if layer_config.in_features is None:
                 layer_config.in_features = in_features
 
-            items = layer_config.model_dump().items()
+            items = layer_config.model_dump(exclude_unset=True).items()
             layer_params = {k: v for k, v in items if k != 'type'}
 
             if layer_index == len(net_config.layers) - 1:
