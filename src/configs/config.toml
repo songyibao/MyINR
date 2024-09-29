@@ -1,13 +1,13 @@
 mode = "RGB"
 [train]
 image_path = "data/kodak-dataset/kodim05.png"
-learning_rate = 0.001
+learning_rate = 0.0001
 num_steps = 10000
 num_epochs = 1
 patience = 600
 scheduler_step_size = 1000
-scheduler_gamma = 0.6
-target_loss = 0.0005
+scheduler_gamma = 0.8
+target_loss = 0.0001
 
 #loss_type = "SSIMLoss"
 #loss_type = "EdgeLoss"

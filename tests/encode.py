@@ -22,6 +22,7 @@ def test(config: MyConfig=MyConfig.get_instance(), device: torch.device=global_d
     inr_model = ConfigurableINRModel(config.net, in_features=coords.shape[-1], out_features=c)
     summary(inr_model, input_data=coords.to('cpu'))
 
+    torch.set_float32_matmul_precision('medium')
     # 训练模型
     trained_inr_model = train_inr(model_input=coords, target_image=original_image, model=inr_model, device=device,
                                   train_config=config.train)
