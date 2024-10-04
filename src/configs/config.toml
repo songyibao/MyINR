@@ -1,13 +1,13 @@
 mode = "RGB"
 [train]
-image_path = "data/kodak-dataset/kodim05.png"
+image_path = "data/kodak-dataset/kodim04.png"
 learning_rate = 0.0001
 num_steps = 10000
 num_epochs = 1
 patience = 600
 scheduler_step_size = 1000
 scheduler_gamma = 0.8
-target_loss = 0.0001
+target_loss = 0.00001
 
 #loss_type = "SSIMLoss"
 #loss_type = "EdgeLoss"
@@ -37,7 +37,7 @@ log_save_path = "mlruns"
 [[net.layers]]
 type = "SineLayer"
 out_features = 256
-is_first = true
+#is_first = false
 [[net.layers]]
 type = "SineLayer"
 out_features = 256

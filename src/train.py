@@ -1,6 +1,8 @@
+import mlflow
 import numpy as np
 import torch
 import torch.optim as optim
+from piq import TVLoss
 from torch import nn
 from torch.optim.lr_scheduler import StepLR
 from torchinfo import summary
@@ -15,6 +17,14 @@ import torch.nn.functional as F
 
 
 def train_inr(model_input, target_image, model, train_config: TrainConfig, device=global_device):
+    """
+    训练INR模型, 返回训练过程中最好的模型
+    :param model_input: 输入模型的数据 (H*W, N)
+    :param target_image: 目标图像 (H, W, C)
+    :param model: 待训练的模型
+    :param train_config: 训练配置
+    :param device: 训练设备
+    """
     learning_rate = train_config.learning_rate
     num_steps = train_config.num_steps
     patience = train_config.patience
@@ -34,8 +44,11 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
     scheduler = StepLR(optimizer, step_size=train_config.scheduler_step_size, gamma=train_config.scheduler_gamma)
 
     loss_class = LossRegistry.get(train_config.loss_type)
+    tv_loss_class = LossRegistry.get('TotalVariationLoss')
     criterion = loss_class()
+    tv_loss = tv_loss_class()
 
+    tv_loss_threshold_steps = num_steps*0.8
     with tqdm(total=num_steps, desc=f"Training:") as pbar:
         for epoch in range(num_steps):
             optimizer.zero_grad()
@@ -44,6 +57,10 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
             output_image = output.view(target_image.shape)
 
             loss = criterion(output_image, target_image)
+            if epoch>tv_loss_threshold_steps:
+                tv_loss_value = tv_loss(output_image)
+                bei = tv_loss_value.item()/loss.item()
+                loss += 0.1/bei*tv_loss_value
             loss.backward()
 
             optimizer.step()
@@ -77,10 +94,17 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
                 "Max Patience": f'{max_patience_counter:>4}'
             }
 
-            evaluate_res = evaluate_tensor_h_w_3(target_image, torch.clamp(output_image, 0, 1))
+            evaluate_res = evaluate_tensor_h_w_3(target_image, torch.clamp(output_image, 0, 1)) # {'PSNR': float,'MS-SSIM': float}
             update_value.update(evaluate_res)
             pbar.set_postfix(update_value)
             pbar.update()
+            if mlflow.active_run() is not None:
+                mlflow.log_metric("Loss", loss.item(), step=epoch)
+                mlflow.log_metric("PSNR", evaluate_res['PSNR'], step=epoch)
+                mlflow.log_metric("MS-SSIM", evaluate_res['MS-SSIM'], step=epoch)
+                mlflow.log_metric("LR", scheduler.get_last_lr()[0], step=epoch)
+                mlflow.log_metric("Patience", patience_counter, step=epoch)
+
 
     logger.info(f'模型训练完成,测试图像重建结果')
     model.load_state_dict(best_model_state)

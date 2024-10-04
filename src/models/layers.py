@@ -580,27 +580,21 @@ class LeakyReLULayer(nn.Module):
     def forward(self, x):
         return self.leaky_relu(x)
 
-class FreqFactor(nn.Module):
-    def __init__(self, in_features:int,omega=60,):
-        super().__init__()
-        self.omega = Parameter(torch.Tensor(in_features))
-        # 所有值初始化为 omega
-        self.omega.data.fill_(omega)
-
-    def forward(self):
-        return self.omega
 @LayerRegistry.register('SineLayer')
 class SineLayer(nn.Module):
 
     def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=60):
         super().__init__()
-        self.omega_0 = omega_0
+        self.omega = omega_0
+        self.omegas = Parameter(torch.Tensor(out_features))
+        # 所有值从1-100均匀初始化
+        # self.omega.data.uniform_(1,in_features)
+        self.omegas.data.fill_(self.omega)
         self.is_first = is_first
 
         self.in_features = in_features
         self.out_features = out_features
         self.linear = nn.Linear(in_features, out_features, bias=bias)
-        self.l_omega = FreqFactor(out_features, omega=omega_0)
         self.init_weights()
 
     def init_weights(self):
@@ -609,22 +603,15 @@ class SineLayer(nn.Module):
                 self.linear.weight.uniform_(-1 / self.in_features,
                                             1 / self.in_features)
             else:
-                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega_0,
-                                            np.sqrt(6 / self.in_features) / self.omega_0)
+                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega,
+                                            np.sqrt(6 / self.in_features) / self.omega)
+
 
     def forward(self, input):
-        factors = self.l_omega()
+        factors = self.omegas
         return torch.sin(factors.mul(self.linear(input)))
-        # 输出中间变量：linear 输出 和 omega_0 * linear(input)
-        # part1, part2 = input.chunk(2, dim=-1)
-        # out1 = torch.sin(30 * self.linear(part1))
-        # out2 = torch.sin(60 * self.linear(part2))
-        # # linear_output = torch.cat([self.linear(part1),self.linear(part2)], dim=-1)
-        # # intermediate = self.omega_0 * linear_output
-        # sine_output = torch.cat([out1, out2], dim=-1)
-        # return sine_output
 
     def forward_with_intermediate(self, input):
         # For visualization of activation distributions
-        intermediate = self.omega_0 * self.linear(input)
+        intermediate = self.omega * self.linear(input)
         return torch.sin(intermediate), intermediate

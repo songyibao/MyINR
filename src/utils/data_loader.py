@@ -4,6 +4,7 @@
 # 实现上面的ImageDataset
 import matplotlib.pyplot as plt
 import numpy as np
+import skimage
 import torch
 from PIL import Image
 from torch import nn
@@ -48,12 +49,7 @@ def get_coords(h, w, data_range: int = 1):
     else:
         raise ValueError(f"Unsupported data_range: {data_range}, must be 1 or -1")
     res = torch.stack([x_coords, y_coords], dim=-1).reshape(-1, 2)
-    # poly = PolynomialFeatures(degree=3)
-    # res = poly.fit_transform(res)
     return res
-
-    # return torch.stack([x_coords, y_coords], dim=-1).reshape(-1, 2)
-
 
 class FFM():
     def __init__(self, in_features: int, out_features: int, scale: int = 10):
@@ -87,7 +83,8 @@ class ImageCompressionDataset(Dataset):
         """
         self.config = config
         # 加载图像
-        self.img = Image.open(config.train.image_path).convert(MyConfig.get_instance().mode)
+        self.img = Image.fromarray(skimage.data.camera())
+        # self.img = Image.open(config.train.image_path).convert(MyConfig.get_instance().mode)
         self.channels = -1
         # 判断图像的通道数
         if self.img.mode == 'RGB':

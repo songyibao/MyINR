@@ -1,5 +1,6 @@
 import os.path
 
+import mlflow
 import torch
 from torchinfo import summary
 from src.configs.config import MyConfig
@@ -11,7 +12,7 @@ from src.utils.device import global_device
 from src.utils.log import logger
 
 
-def test(config: MyConfig=MyConfig.get_instance(), device: torch.device=global_device):
+def exp(config: MyConfig=MyConfig.get_instance(), device: torch.device=global_device):
     logger.info(f'模型配置:{config.net.model_dump()}')
     logger.info("加载和预处理图像")
     dataset = ImageCompressionDataset(config)
@@ -22,27 +23,15 @@ def test(config: MyConfig=MyConfig.get_instance(), device: torch.device=global_d
     inr_model = ConfigurableINRModel(config.net, in_features=coords.shape[-1], out_features=c)
     summary(inr_model, input_data=coords.to('cpu'))
 
-    torch.set_float32_matmul_precision('medium')
     # 训练模型
     trained_inr_model = train_inr(model_input=coords, target_image=original_image, model=inr_model, device=device,
                                   train_config=config.train)
 
-    learned_embedding_layer = trained_inr_model.layers[0]
-
-
-    learned_embedding = learned_embedding_layer(coords.to(device))
-    # 清除learned_embedding的梯度
-    learned_embedding = learned_embedding.detach()
-    torch.save(learned_embedding, os.path.join(config.save.base_output_path, 'embedding.pth').__str__())
-    # real_coords = get_coords(h, w,data_range=1)
-    # pe_model = ConfigurableINRModel(config.pe_net, in_features=real_coords.shape[-1], out_features=learned_embedding.shape[-1])
-    # trained_pe_model = train_pe_inr(model_input=real_coords, learned_embedding=learned_embedding, model=pe_model, device=device, train_config=config.train)
-    # trained_inr_model.layers[0] = trained_pe_model
-
     if not os.path.exists(config.save.base_output_path):
         os.makedirs(config.save.base_output_path)
-    torch.save(trained_inr_model.state_dict(),
-               os.path.join(config.save.net_save_path, config.save.net_name).__str__())
+    torch.save(trained_inr_model.state_dict(),os.path.join(config.save.net_save_path, config.save.net_name).__str__())
+    if mlflow.active_run() is not None:
+        mlflow.pytorch.log_model(trained_inr_model, "model")
     # 保存模型
     logger.info("保存模型")
 
@@ -62,4 +51,7 @@ def test(config: MyConfig=MyConfig.get_instance(), device: torch.device=global_d
     # logger.info("保存生成的图像到wandb")
 
 
-test()
+mlflow.set_experiment("image_compression")
+torch.set_float32_matmul_precision('medium')
+with mlflow.start_run() as run:
+    exp()

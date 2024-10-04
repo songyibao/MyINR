@@ -50,7 +50,8 @@ def evaluate_tensor_h_w_3(original_image: torch.Tensor, compressed_image: torch.
     # 转换成 [1,C,H,W]
     x = original_image.permute(2, 0, 1).unsqueeze(0)
     y = compressed_image.permute(2, 0, 1).unsqueeze(0)
-    psnr = piq.psnr(x, y, data_range=1.)
+    mse = torch.mean((x - y) ** 2)
+    psnr = 10 * torch.log10(1 / mse)
     msssim = piq.multi_scale_ssim(x, y, data_range=1.)
     return {
         'PSNR': round(psnr.item(), 2),

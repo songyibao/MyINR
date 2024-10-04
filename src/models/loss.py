@@ -125,6 +125,35 @@ class MSELoss(nn.Module):
     def forward(self, output_image, target_image):
         return self.mse_loss(output_image, target_image)
 
+@LossRegistry.register("TotalVariationLoss")
+class TotalVariationLoss(nn.Module):
+    def __init__(self):
+        super(TotalVariationLoss, self).__init__()
+
+    def forward(self, output_image):
+        """
+        计算全变差损失 (Total Variation Loss)。
+
+        参数:
+        output_image -- 形状为 (height, width, channels) 的 3D 张量
+
+        返回:
+        TV loss 值
+        """
+        # 输出图像必须是 3D 张量，形状为 [height, width, channels]
+        if len(output_image.shape) != 3:
+            raise ValueError("Expected input to be a 3D tensor of shape (h, w, c)")
+
+        # 计算垂直方向像素差异
+        diff_y = torch.abs(output_image[1:, :, :] - output_image[:-1, :, :])
+        # 计算水平方向像素差异
+        diff_x = torch.abs(output_image[:, 1:, :] - output_image[:, :-1, :])
+
+        # 计算总的 TV loss
+        tv_loss = torch.sum(diff_x) + torch.sum(diff_y)
+
+        return tv_loss
+
 @LossRegistry.register("SSIMandEdgeLoss")
 class SSIMandEdgeLoss(nn.Module):
     def __init__(self, edge_loss_weight=0.05, ssim_loss_weight=0.1):

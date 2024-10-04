@@ -1,4 +1,5 @@
 import lightning as L
+import mlflow
 import torch
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import MLFlowLogger
@@ -49,11 +50,11 @@ class PLINR(L.LightningModule):
         }
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
-        train_loader = DataLoader(self.train_set, batch_size=1)
+        train_loader = DataLoader(self.train_set, batch_size=1,num_workers=12)
         return train_loader
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
-        test_loader = DataLoader(self.test_set, batch_size=1)
+        test_loader = DataLoader(self.test_set, batch_size=1,num_workers=12)
         return test_loader
 
     def training_step(self,_):
@@ -62,13 +63,13 @@ class PLINR(L.LightningModule):
         # batch 中包含了 coords, original_image, h, w, c，每个的第一个维度是 batch_size且固定为1，取消掉这个维度
         output_pixels = self.INR(self.coords)
         loss = self.loss(output_pixels, self.original_image)
-        # evaluate_res = evaluate_tensor_h_w_3(original_image.view(h, w, c),
-        #                                      torch.clamp(output_pixels, 0, 1).view(h, w, c))
+        evaluate_res = evaluate_tensor_h_w_3(self.original_image.view(self.shape),
+                                             torch.clamp(output_pixels, 0, 1).view(self.shape))
 
-        # self.log("LOSS", loss,prog_bar=True)
-        # self.log("PSNR", evaluate_res["PSNR"], logger=False, prog_bar=True)
-        # self.log("MS-SSIM", evaluate_res["MS-SSIM"], logger=False, prog_bar=True)
-        # self.log("Learning Rate", self.scheduler.get_last_lr()[0], logger=False, prog_bar=True)
+        self.log("LOSS", loss,prog_bar=True)
+        self.log("PSNR", evaluate_res["PSNR"], logger=False, prog_bar=True)
+        self.log("MS-SSIM", evaluate_res["MS-SSIM"], logger=False, prog_bar=True)
+        self.log("Learning Rate", self.scheduler.get_last_lr()[0], logger=False, prog_bar=True)
         return loss
 
     def test_step(self, batch, batch_idx):
@@ -76,6 +77,7 @@ class PLINR(L.LightningModule):
         return res
 
 
+torch.set_float32_matmul_precision('medium')
 config = MyConfig.get_instance()
 model = PLINR(config)
 mlf_logger = MLFlowLogger(experiment_name="lightning_logs", tracking_uri=f"file:{config.misc.log_save_path}")
