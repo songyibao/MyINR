@@ -15,7 +15,7 @@ if os_type == 'Windows':
     pass
 from torchvision.transforms.functional import to_pil_image
 
-from src.models.model1 import ConfigurableINRModel
+from src.models.model import ConfigurableINRModel
 from src.configs.config import MyConfig
 from src.utils.evaluate import calculate_bpp, evaluate_tensor_h_w_3
 from src.utils.log import logger
@@ -71,7 +71,7 @@ def decompress_and_save(inr_model, config: MyConfig, base_output_path: str, mode
     inr_model = inr_model.eval()
     device = next(inr_model.parameters()).device
     dataset = ImageCompressionDataset(config)
-    dataset.img.save(os.path.join(experiment_dir, 'original_image.png'))
+    # dataset.img.save(os.path.join(experiment_dir, 'original_image.png'))
     if model_input is None or original_image is None:
         coords, original_image, h, w,c = dataset[0]
         original_image = original_image.view(h, w, c)
@@ -102,23 +102,6 @@ def decompress_and_save(inr_model, config: MyConfig, base_output_path: str, mode
     output_image = torch.clamp(output_image, 0, 1) # (h, w, c)
     reconstruct_image_mlfow_obj = mlflow.Image(output_image.cpu().numpy())
     original_image_mlfow_obj = mlflow.Image(original_image.cpu().numpy())
-
-    # reconstructed_image = to_pil_image(output_image.permute(2, 0, 1)) # Tensor 类型会被内部 permute
-    # img_save_path = os.path.join(experiment_dir, 'reconstructed_image.png')
-    # reconstructed_image.save(img_save_path)
-
-    # 创建比较图像
-    # comparison_image_path = os.path.join(experiment_dir, 'comparison.png')
-    # create_comparison_image(original_image, reconstructed_image, comparison_image_path)
-
-    # 保存评估指标
-    # result_file_path = os.path.join(experiment_dir, 'evaluation_results.toml')
-    # save_config_to_toml(result, result_file_path)
-    # mlflow.log_dict(result, "evaluation_results")
-
-    # 保存配置文件
-    # config_file_path = os.path.join(experiment_dir, 'config.toml')
-    # save_config_to_toml(config.model_dump(), config_file_path)
 
     # 创建并保存实验摘要
     exp_summary = {

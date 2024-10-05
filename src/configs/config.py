@@ -10,11 +10,13 @@ current_file_path = os.path.abspath(__file__)
 project_root_path = os.path.dirname(os.path.dirname(os.path.dirname(current_file_path)))
 
 class LayerConfig(BaseModel):
-    type: str
-    in_features: Optional[int] = None
-    out_features: int
-    is_first: Optional[bool] = None
-    need_manual_init: Optional[bool] = None
+    type: str # 层类型
+    in_features: Optional[int] = None # 必选
+    out_features: int # 必选
+    is_first: Optional[bool] = None # SineLayer 是否是第一层
+    need_manual_init: Optional[bool] = None # 控制 LinearLayer 是否需要手动初始化
+    enable_learnable_omega: Optional[bool] = None # SineLayer 是否启用可学习的 omega 数组
+    use_cfloat_dtype: Optional[bool] = None # 是否使用 torch.cfloat 数据类型, 配合 WIRE: ComplexGaborLayer 使用
 
 class NetConfig(BaseModel):
     num_frequencies: Optional[int] = None
@@ -76,7 +78,7 @@ class MiscConfig(BaseModel):
         return full_path
 
 class MyConfig(BaseModel):
-    mode: str
+    experiment_name: str
     train: TrainConfig
     save: SaveConfig
     misc: MiscConfig
@@ -85,17 +87,22 @@ class MyConfig(BaseModel):
 
     _instance: ClassVar[Optional['MyConfig']] = None  # 标记为类变量
 
-    @field_validator('mode', mode='before')
-    @classmethod
-    def validate_mode(cls, v):
-        if v not in ['RGB', 'L']:
-            raise ValueError(f"Invalid image mode: {v}, must be 'RGB' or 'L'")
-        return v
+    # @field_validator('mode', mode='before')
+    # @classmethod
+    # def validate_mode(cls, v):
+    #     if v not in ['RGB', 'L']:
+    #         raise ValueError(f"Invalid image mode: {v}, must be 'RGB' or 'L'")
+    #     return v
 
     @classmethod
-    def get_instance(cls):
-        if cls._instance is None:
-            config_path = os.path.join(os.path.dirname(current_file_path), 'config.toml')
+    def get_instance(cls, config_name: str = None, force_reload: bool = False):
+        if cls._instance is None or force_reload:
+            if config_name is None:
+                # 默认加载同目录下的 config.toml 文件
+                config_path = os.path.join(os.path.dirname(current_file_path), 'config.toml')
+            else:
+                # 加载指定的配置文件
+                config_path = os.path.join(os.path.dirname(current_file_path), f'{config_name.replace(".toml", "")}.toml')
             # 加载 TOML 文件
             config_dict = toml.load(config_path)
             # 创建唯一实例

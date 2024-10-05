@@ -85,7 +85,7 @@ class GlobalLogger:
         }
         return levels.get(log_level_str, logging.INFO)
 
-# 创建全局 logger 实例
-logger = GlobalLogger().get_logger()
+# 使用 mlflow 的 logger
+logger = logging.getLogger("mlflow")
 
 

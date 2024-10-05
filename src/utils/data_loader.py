@@ -83,8 +83,8 @@ class ImageCompressionDataset(Dataset):
         """
         self.config = config
         # 加载图像
-        self.img = Image.fromarray(skimage.data.camera())
-        # self.img = Image.open(config.train.image_path).convert(MyConfig.get_instance().mode)
+        # self.img = Image.fromarray(skimage.data.camera()) # 读取示例图像
+        self.img = Image.open(config.train.image_path)
         self.channels = -1
         # 判断图像的通道数
         if self.img.mode == 'RGB':
@@ -99,25 +99,11 @@ class ImageCompressionDataset(Dataset):
             else:
                 raise ValueError(f"Unsupported image mode: {self.img.mode}")
         self.img_tensor = ToTensor()(self.img)  # 转换为 PyTorch 张量，形状为 (3, H, W)
-        # 转换为 NumPy 数组
-        # self.img_array = self.img_tensor.numpy().transpose(1, 2, 0)
-        # 上采样
-        # self.upsampled_img_array = upsample_image(self.img_array)
-        # 转换回 PIL 图像（如果需要）
-        # self.upsampled_img = Image.fromarray(self.upsampled_img_array)
-        self.mode = mode
-        # 保存或显示上采样后的图像
-        # 获取图像的宽、高信息
         self.h, self.w = self.img_tensor.shape[1], self.img_tensor.shape[2]
-
         self.coords = get_coords(self.h, self.w)  # 转换为 (h * w, 2)
-
         # 获取图像的像素值，形状为 (h * w, 3)
         self.pixels = self.img_tensor.permute(1, 2, 0).view(-1, self.channels)
 
-        # self.h, self.w = self.upsampled_img_array.shape[:2]
-        # self.coords = get_coords(self.h,self.w)
-        # self.pixels = ToTensor()(self.upsampled_img).permute(1, 2, 0).view(-1, self.channels)
 
         if self.config.net.layers[0].type == 'LearnableEmbedding':
             self.coords = torch.arange(self.h * self.w).long()
@@ -133,12 +119,7 @@ class ImageCompressionDataset(Dataset):
         """
         返回数据集中样本的数量。
         """
-        if self.mode == 'train':
-            return self.config.train.num_steps
-        elif self.mode == 'test':
-            return 1
-        else:
-            raise ValueError(f"Invalid mode: {self.mode}, must be 'train' or 'test'")
+        return 1
 
     def __getitem__(self, idx):
         """

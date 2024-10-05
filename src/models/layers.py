@@ -17,11 +17,13 @@ class LayerRegistry:
         def decorator(layer_class):
             cls._layers[name] = layer_class
             return layer_class
+
         return decorator
 
     @classmethod
     def get(cls, name):
         return cls._layers.get(name)
+
 
 @LayerRegistry.register('KAN')
 class KANLinear(torch.nn.Module):
@@ -88,7 +90,7 @@ class KANLinear(torch.nn.Module):
             self.spline_weight.data.copy_(
                 (self.scale_spline if not self.enable_standalone_scale_spline else 1.0)
                 * self.curve2coeff(
-                    self.grid.T[self.spline_order : -self.spline_order],
+                    self.grid.T[self.spline_order: -self.spline_order],
                     noise,
                 )
             )
@@ -119,8 +121,8 @@ class KANLinear(torch.nn.Module):
                             / (grid[:, k:-1] - grid[:, : -(k + 1)])
                             * bases[:, :, :-1]
                     ) + (
-                            (grid[:, k + 1 :] - x)
-                            / (grid[:, k + 1 :] - grid[:, 1:(-k)])
+                            (grid[:, k + 1:] - x)
+                            / (grid[:, k + 1:] - grid[:, 1:(-k)])
                             * bases[:, :, 1:]
                     )
 
@@ -228,7 +230,7 @@ class KANLinear(torch.nn.Module):
                 grid[-1:]
                 + uniform_step
                 * torch.arange(1, self.spline_order + 1, device=x.device).unsqueeze(1),
-                ],
+            ],
             dim=0,
         )
 
@@ -256,6 +258,7 @@ class KANLinear(torch.nn.Module):
                 regularize_activation * regularization_loss_activation
                 + regularize_entropy * regularization_loss_entropy
         )
+
 
 @LayerRegistry.register('SynthesisLayer')
 class SynthesisLayer(nn.Module):
@@ -289,6 +292,7 @@ class SynthesisLayer(nn.Module):
         y = self.conv_layer(x)
         return y
 
+
 @LayerRegistry.register('SynthesisResidualLayer')
 class SynthesisResidualLayer(nn.Module):
     def __init__(self, in_features: int, out_features: int, kernel_size: int):
@@ -319,9 +323,10 @@ class SynthesisResidualLayer(nn.Module):
             self.conv_layer.bias.data = self.conv_layer.bias.data * 0.
 
     def forward(self, x: Tensor) -> Tensor:
-        x = x.unsqueeze(0).unsqueeze(0).permute(2,3,0,1)
-        return (self.conv_layer(x)+x).permute(2,3,0,1).squeeze(0).squeeze(0)
+        x = x.unsqueeze(0).unsqueeze(0).permute(2, 3, 0, 1)
+        return (self.conv_layer(x) + x).permute(2, 3, 0, 1).squeeze(0).squeeze(0)
         # return self.conv_layer(self.pad(x)) + x
+
 
 @LayerRegistry.register('SynthesisAttentionLayer')
 class SynthesisAttentionLayer(nn.Module):
@@ -427,16 +432,20 @@ class Fourier_reparam_linear(nn.Module):
         output = torch.matmul(x, weight.transpose(0, 1))
         output = output + self.bias.T
         return output
+
+
 @LayerRegistry.register('FourierFeatureMapping')
 class FourierFeatureMapping(nn.Module):
     def __init__(self, in_features, out_features, scale=10):
         super(FourierFeatureMapping, self).__init__()
         self.B = nn.Parameter(torch.randn((in_features, out_features)) * scale, requires_grad=True)
         self.in_features = in_features
-        self.out_features = out_features*2
+        self.out_features = out_features * 2
+
     def forward(self, x):
         x_proj = 2 * torch.pi * x @ self.B
         return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
+
 
 @LayerRegistry.register('LearnableEmbedding')
 class LearnableEmbedding(nn.Module):
@@ -448,9 +457,44 @@ class LearnableEmbedding(nn.Module):
         self.embedding = nn.Embedding(num_embeddings, out_features)
         self.in_features = in_features
         self.out_features = out_features
+
     def forward(self, x):
         return self.embedding(x)
+@LayerRegistry.register('Embedding')
+class Embedding(nn.Module):
+    def __init__(self, in_features, num_frequencies, logscale=True):
+        """
+        Defines a function that embeds x to (x, sin(2^k x), cos(2^k x), ...)
+        in_channels: number of input channels (3 for both xyz and direction)
+        """
+        super(Embedding, self).__init__()
+        self.N_freqs = num_frequencies
+        self.in_channels = in_features
+        self.funcs = [torch.sin, torch.cos]
+        self.out_channels = in_features * (len(self.funcs) * num_frequencies + 1)
 
+        if logscale:
+            self.freq_bands = 2**torch.linspace(0, num_frequencies - 1, num_frequencies)
+        else:
+            self.freq_bands = torch.linspace(1, 2 ** (num_frequencies - 1), num_frequencies)
+
+    def forward(self, x):
+        """
+        Embeds x to (x, sin(2^k x), cos(2^k x), ...)
+        Different from the paper, "x" is also in the output
+        See https://github.com/bmild/nerf/issues/12
+
+        Inputs:
+            x: (B, self.in_channels)
+
+        Outputs:
+            out: (B, self.out_channels)
+        """
+        out = [x]
+        for freq in self.freq_bands:
+            for func in self.funcs:
+                out += [func(freq*x)]
+        return torch.cat(out, -1)
 
 @LayerRegistry.register('PosEncodingNeRF')
 class PositionalEncoding(nn.Module):
@@ -469,18 +513,26 @@ class PositionalEncoding(nn.Module):
             encodings.append(torch.cos(freq * x))
         return torch.cat(encodings, dim=-1).view(x.shape[0], -1)
 
+
 @LayerRegistry.register('Linear')
 class LinearLayer(nn.Module):
-    def __init__(self, in_features: int, out_features: int,need_manual_init:bool=False,hidden_omega_0:float=30.):
+    def __init__(self, in_features: int, out_features: int, need_manual_init: bool = False,
+                 hidden_omega_0: float = 30.,use_cfloat_dtype: bool = False):
         super().__init__()
-        self.linear = nn.Linear(in_features, out_features)
+        data_type = torch.float if not use_cfloat_dtype else torch.cfloat
+        self.linear = nn.Linear(in_features, out_features,dtype=data_type)
         self.in_features = in_features
         self.out_features = out_features
+        if need_manual_init and use_cfloat_dtype:
+            raise ValueError('WIRE(use_cfloat_dtype) and SIREN(need_manual_init) cannot be used together')
         if need_manual_init is True:
             with torch.no_grad():
-                self.linear.weight.uniform_(-np.sqrt(6 / in_features) / hidden_omega_0,np.sqrt(6 / in_features) / hidden_omega_0)
+                self.linear.weight.uniform_(-np.sqrt(6 / in_features) / hidden_omega_0,
+                                            np.sqrt(6 / in_features) / hidden_omega_0)
+
     def forward(self, x):
         return self.linear(x)
+
 
 @LayerRegistry.register('FinalLinear')
 class FinalLinearLayer(nn.Module):
@@ -489,9 +541,12 @@ class FinalLinearLayer(nn.Module):
         self.linear = nn.Linear(in_features, out_features)
         self.in_features = in_features
         self.out_features = out_features
+
     def forward(self, x):
         x = x.permute(0, 2, 3, 1).squeeze(0)
         return self.linear(x)
+
+
 @LayerRegistry.register('Conv1d')
 class Conv1dLayer(nn.Module):
     def __init__(self, in_channels: int, out_channels: int, kernel_size: int, stride: int = 1, padding: int = 0):
@@ -499,8 +554,10 @@ class Conv1dLayer(nn.Module):
         self.conv = nn.Conv1d(in_channels, out_channels, kernel_size, stride, padding)
         self.in_channels = in_channels
         self.out_channels = out_channels
+
     def forward(self, x):
         return self.conv(x)
+
 
 @LayerRegistry.register('Conv2d')
 class Conv2dLayer(nn.Module):
@@ -509,16 +566,18 @@ class Conv2dLayer(nn.Module):
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
         self.in_channels = in_channels
         self.out_channels = out_channels
+
     def forward(self, x):
         return self.conv(x)
+
 
 @LayerRegistry.register('Conv2dPE')
 class HierarchicalPositionalEncoding(nn.Module):
     def __init__(self, in_features=2, base_dim=16, out_features=32, num_layers=4):
         super(HierarchicalPositionalEncoding, self).__init__()
         self.initial_layer = nn.Linear(in_features, base_dim)
-        self.layers = nn.ModuleList([nn.Linear(base_dim * 2**i, base_dim * 2**(i+1)) for i in range(num_layers)])
-        self.final_layer = nn.Linear(base_dim * 2**num_layers, out_features)
+        self.layers = nn.ModuleList([nn.Linear(base_dim * 2 ** i, base_dim * 2 ** (i + 1)) for i in range(num_layers)])
+        self.final_layer = nn.Linear(base_dim * 2 ** num_layers, out_features)
         self.activation = nn.ReLU()
         self.in_features = in_features
         self.out_features = out_features
@@ -529,38 +588,45 @@ class HierarchicalPositionalEncoding(nn.Module):
             z = self.activation(layer(z))
         return self.final_layer(z)
 
+
 @LayerRegistry.register('ReLU')
 class ReLULayer(nn.Module):
-    def __init__(self,in_features: int, out_features: int):
+    def __init__(self, in_features: int, out_features: int):
         super().__init__()
         self.relu = nn.ReLU()
         self.in_features = in_features
         self.out_features = out_features
+
     def forward(self, x):
         return self.relu(x)
 
+
 @LayerRegistry.register('LeakyReLU')
 class LeakyReLULayer(nn.Module):
-    def __init__(self, in_features: int, out_features: int,negative_slope: float = 0.01):
+    def __init__(self, in_features: int, out_features: int, negative_slope: float = 0.01):
         super().__init__()
         self.leaky_relu = nn.LeakyReLU(negative_slope)
         self.in_features = in_features
         self.out_features = out_features
+
     def forward(self, x):
         return self.leaky_relu(x)
 
+
 @torch.jit.script
 def bspline_wavelet(x, scale):
-    return (1 / 6) * F.relu(scale*x) \
-        - (8 / 6) * F.relu(scale*x - (1 / 2)) \
-        + (23 / 6) * F.relu(scale*x - (1)) \
-        - (16 / 3) * F.relu(scale*x - (3 / 2)) \
-        + (23 / 6) * F.relu(scale*x - (2)) \
-        - (8 / 6) * F.relu(scale*x - (5 / 2)) \
-        +(1 / 6) * F.relu(scale*x - (3))
+    return (1 / 6) * F.relu(scale * x) \
+        - (8 / 6) * F.relu(scale * x - (1 / 2)) \
+        + (23 / 6) * F.relu(scale * x - (1)) \
+        - (16 / 3) * F.relu(scale * x - (3 / 2)) \
+        + (23 / 6) * F.relu(scale * x - (2)) \
+        - (8 / 6) * F.relu(scale * x - (5 / 2)) \
+        + (1 / 6) * F.relu(scale * x - (3))
+
+
 @LayerRegistry.register('BWNonlin')
 class BSplineWavelet(nn.Module):
-    def __init__(self, in_features: int, out_features: int,scale=torch.as_tensor(1)):
+    def __init__(self, in_features: int, out_features: int, scale=torch.as_tensor(1)):
         super().__init__()
         self.scale = torch.as_tensor(scale)
         self.in_features = in_features
@@ -570,32 +636,38 @@ class BSplineWavelet(nn.Module):
         output = bspline_wavelet(x, self.scale)
 
         return output
+
+
 @LayerRegistry.register('LeakyReLU')
 class LeakyReLULayer(nn.Module):
-    def __init__(self, in_features: int, out_features: int,negative_slope: float = 0.01):
+    def __init__(self, in_features: int, out_features: int, negative_slope: float = 0.01):
         super().__init__()
         self.leaky_relu = nn.LeakyReLU(negative_slope)
         self.in_features = in_features
         self.out_features = out_features
+
     def forward(self, x):
         return self.leaky_relu(x)
+
 
 @LayerRegistry.register('SineLayer')
 class SineLayer(nn.Module):
 
-    def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=60):
+    def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=60, enable_learnable_omega=False):
         super().__init__()
-        self.omega = omega_0
-        self.omegas = Parameter(torch.Tensor(out_features))
-        # 所有值从1-100均匀初始化
-        # self.omega.data.uniform_(1,in_features)
-        self.omegas.data.fill_(self.omega)
-        self.is_first = is_first
-
         self.in_features = in_features
         self.out_features = out_features
+
+        self.omega = omega_0
+        self.learnable_omegas = None
+        self.enable_learnable_omega = enable_learnable_omega
+        self.is_first = is_first
         self.linear = nn.Linear(in_features, out_features, bias=bias)
         self.init_weights()
+        if self.enable_learnable_omega:
+            self.learnable_omegas = Parameter(torch.linspace(0,1,out_features),requires_grad=True)
+            # self.learnable_omegas.data.fill_(self.omega)
+
 
     def init_weights(self):
         with torch.no_grad():
@@ -606,12 +678,85 @@ class SineLayer(nn.Module):
                 self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega,
                                             np.sqrt(6 / self.in_features) / self.omega)
 
-
     def forward(self, input):
-        factors = self.omegas
-        return torch.sin(factors.mul(self.linear(input)))
+        res = None
+        if self.enable_learnable_omega:
+            res = torch.sin(self.omega * self.learnable_omegas.mul(self.linear(input)))
+        else:
+            res = torch.sin(self.omega * self.linear(input))
+        return res
 
     def forward_with_intermediate(self, input):
         # For visualization of activation distributions
         intermediate = self.omega * self.linear(input)
         return torch.sin(intermediate), intermediate
+
+@LayerRegistry.register('GaussLayer')
+class GaussLayer(nn.Module):
+    '''
+        Drop in replacement for SineLayer but with Gaussian non linearity
+    '''
+    def __init__(self, in_features, out_features, bias=True,
+                 is_first=False, omega_0=30, scale=10.0):
+        '''
+            is_first, and omega_0 are not used.
+        '''
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.omega_0 = omega_0
+        self.scale = scale
+        self.is_first = is_first
+        self.linear = nn.Linear(in_features, out_features, bias=bias)
+
+    def forward(self, input):
+        return torch.exp(-(self.scale*self.linear(input))**2)
+
+@LayerRegistry.register('ComplexGaborLayer')
+class ComplexGaborLayer(nn.Module):
+    '''
+        Implicit representation with complex Gabor nonlinearity
+
+        Inputs;
+            in_features: Input features
+            out_features; Output features
+            bias: if True, enable bias for the linear operation
+            is_first: Legacy SIREN parameter
+            omega_0: Legacy SIREN parameter
+            omega0: Frequency of Gabor sinusoid term
+            sigma0: Scaling of Gabor Gaussian term
+            trainable: If True, omega and sigma are trainable parameters
+    '''
+
+    def __init__(self, in_features, out_features, bias=True,
+                 is_first=False, omega0=10.0, sigma0=40.0,
+                 trainable=False):
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.omega_0 = omega0
+        self.scale_0 = sigma0
+        self.is_first = is_first
+
+        self.in_features = in_features
+
+        if self.is_first:
+            dtype = torch.float
+        else:
+            dtype = torch.cfloat
+
+        # Set trainable parameters if they are to be simultaneously optimized
+        self.omega_0 = nn.Parameter(self.omega_0*torch.ones(1), trainable)
+        self.scale_0 = nn.Parameter(self.scale_0*torch.ones(1), trainable)
+
+        self.linear = nn.Linear(in_features,
+                                out_features,
+                                bias=bias,
+                                dtype=dtype)
+
+    def forward(self, input):
+        lin = self.linear(input)
+        omega = self.omega_0 * lin
+        scale = self.scale_0 * lin
+
+        return torch.exp(1j*omega - scale.abs().square())

@@ -6,3 +6,4 @@ piq
 imageio
 torchinfo
 pydantic
+mlflow

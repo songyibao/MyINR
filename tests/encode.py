@@ -5,14 +5,14 @@ import torch
 from torchinfo import summary
 from src.configs.config import MyConfig
 from src.decompress import decompress_and_save
-from src.models.model1 import ConfigurableINRModel
-from src.train import train_inr, train_pe_inr
+from src.models.model import ConfigurableINRModel
+from src.train import train_inr
 from src.utils.data_loader import ImageCompressionDataset, get_coords
 from src.utils.device import global_device
 from src.utils.log import logger
 
 
-def exp(config: MyConfig=MyConfig.get_instance(), device: torch.device=global_device):
+def exp(config: MyConfig, device: torch.device=global_device):
     logger.info(f'模型配置:{config.net.model_dump()}')
     logger.info("加载和预处理图像")
     dataset = ImageCompressionDataset(config)
@@ -29,6 +29,7 @@ def exp(config: MyConfig=MyConfig.get_instance(), device: torch.device=global_de
 
     if not os.path.exists(config.save.base_output_path):
         os.makedirs(config.save.base_output_path)
+    trained_inr_model = trained_inr_model.to('cpu')
     torch.save(trained_inr_model.state_dict(),os.path.join(config.save.net_save_path, config.save.net_name).__str__())
     if mlflow.active_run() is not None:
         mlflow.pytorch.log_model(trained_inr_model, "model")
@@ -42,7 +43,8 @@ def exp(config: MyConfig=MyConfig.get_instance(), device: torch.device=global_de
     # model.layers[0] = ConfigurableINRModel(config.pe_net, in_features=real_coords.shape[-1], out_features=learned_embedding.shape[-1])
     model.load_state_dict(
         torch.load(os.path.join(config.save.net_save_path, config.save.net_name).__str__(), weights_only=True,
-                   map_location=device))
+                   map_location="cpu"))
+
     # summary(inr_model, input_data=real_coords.to(device))
     decompress_and_save(inr_model=model, base_output_path=config.save.base_output_path,
                         config=config,model_input=coords,original_image=original_image)
@@ -51,7 +53,4 @@ def exp(config: MyConfig=MyConfig.get_instance(), device: torch.device=global_de
     # logger.info("保存生成的图像到wandb")
 
 
-mlflow.set_experiment("image_compression")
-torch.set_float32_matmul_precision('medium')
-with mlflow.start_run() as run:
-    exp()
+

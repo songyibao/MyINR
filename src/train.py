@@ -27,6 +27,7 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
     """
     learning_rate = train_config.learning_rate
     num_steps = train_config.num_steps
+    # num_steps = 10 # for test
     patience = train_config.patience
 
     best_val_loss = np.inf
@@ -44,11 +45,8 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
     scheduler = StepLR(optimizer, step_size=train_config.scheduler_step_size, gamma=train_config.scheduler_gamma)
 
     loss_class = LossRegistry.get(train_config.loss_type)
-    tv_loss_class = LossRegistry.get('TotalVariationLoss')
     criterion = loss_class()
-    tv_loss = tv_loss_class()
 
-    tv_loss_threshold_steps = num_steps*0.8
     with tqdm(total=num_steps, desc=f"Training:") as pbar:
         for epoch in range(num_steps):
             optimizer.zero_grad()
@@ -57,10 +55,7 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
             output_image = output.view(target_image.shape)
 
             loss = criterion(output_image, target_image)
-            if epoch>tv_loss_threshold_steps:
-                tv_loss_value = tv_loss(output_image)
-                bei = tv_loss_value.item()/loss.item()
-                loss += 0.1/bei*tv_loss_value
+
             loss.backward()
 
             optimizer.step()
@@ -112,75 +107,13 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
     output_image = output.view(target_image.shape)
     evaluate_res = evaluate_tensor_h_w_3(target_image, torch.clamp(output_image, 0, 1))
     logger.info(evaluate_res)
+    # 用最好结果进行最后一次日志记录
+    if mlflow.active_run() is not None:
+        mlflow.log_metric("Loss", best_val_loss, step=num_steps)
+        mlflow.log_metric("PSNR", evaluate_res['PSNR'], step=num_steps)
+        mlflow.log_metric("MS-SSIM", evaluate_res['MS-SSIM'], step=num_steps)
+        mlflow.log_metric("LR", scheduler.get_last_lr()[0], step=num_steps)
+        mlflow.log_metric("Patience", patience_counter, step=num_steps)
 
     return model
 
-def train_pe_inr(model_input, learned_embedding, model, train_config: TrainConfig, device=global_device):
-
-    # learning_rate = train_config.learning_rate
-    learning_rate = 1e-4
-    num_steps = 3000
-    patience = train_config.patience
-
-    best_val_loss = np.inf
-    best_model_state = None
-    max_patience_counter = 0
-    patience_counter = 0
-    logger.info(f"训练PE：{device}")
-    logger.info(f"运行设备：{device}")
-    model = model.to(device)
-    model_input = model_input.to(device)
-    learned_embedding = learned_embedding.to(device)
-
-    summary(model, input_data=model_input.to(device))
-
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    scheduler = StepLR(optimizer, step_size=1000, gamma=1)
-
-    loss_class = LossRegistry.get(train_config.loss_type)
-    criterion = nn.L1Loss()
-
-    with tqdm(total=num_steps, desc=f"Training:") as pbar:
-        for epoch in range(num_steps):
-            optimizer.zero_grad()
-
-            output = model(model_input)
-
-            loss = criterion(output, learned_embedding)
-            loss.backward()
-
-            optimizer.step()
-            scheduler.step()
-
-            val_loss = loss.item()
-            if val_loss < train_config.target_loss:
-                tqdm.write(f"当前损失{val_loss}小于目标损失{train_config.target_loss}，停止训练。")
-                break
-
-            if patience_counter > max_patience_counter:
-                max_patience_counter = patience_counter
-
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                best_model_state = model.state_dict()
-                patience_counter = 0
-            else:
-                patience_counter += 1
-
-            if patience_counter >= patience:
-                tqdm.write(f"早停: 在epoch {epoch + 1}停止训练。验证损失没有在{patience}个epoch内改善。")
-                break
-
-            update_value = {
-                "Epoch": f'{epoch + 1:<{len(str(num_steps))}}/{num_steps}',
-                "LR": f'{scheduler.get_last_lr()[0]:.6f}',
-                "Loss": f'{loss.item():.4f}',
-                "Patience": f'{patience_counter:<{len(str(patience))}}/{patience}',
-                "Best Loss": f'{best_val_loss:.4f}',
-                "Max Patience": f'{max_patience_counter:>4}'
-            }
-            pbar.set_postfix(update_value)
-            pbar.update()
-
-    logger.info(f'PE模型训练完成')
-    return model

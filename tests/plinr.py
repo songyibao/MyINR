@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from src.configs.config import MyConfig
 from src.decompress import decompress_and_save
 from src.models.loss import LossRegistry
-from src.models.model1 import ConfigurableINRModel
+from src.models.model import ConfigurableINRModel
 from src.utils.data_loader import ImageCompressionDataset
 from src.utils.evaluate import evaluate_tensor_h_w_3
 

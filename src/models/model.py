@@ -56,6 +56,8 @@ class ConfigurableINRModel(nn.Module):
             logger.debug(f'Output shape: {x.shape}')
 
             logger.debug(f'Next in_features: {layer.out_features if hasattr(layer, "out_features") else layer.out_channels}')
+        if self.layers[0].__class__.__name__ == 'ComplexGaborLayer':
+            x = x.real
         return x
 
 
