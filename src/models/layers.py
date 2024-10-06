@@ -665,7 +665,7 @@ class SineLayer(nn.Module):
         self.linear = nn.Linear(in_features, out_features, bias=bias)
         self.init_weights()
         if self.enable_learnable_omega:
-            self.learnable_omegas = Parameter(torch.linspace(0,1,out_features),requires_grad=True)
+            self.learnable_omegas = Parameter(torch.linspace(0,3,out_features),requires_grad=True)
             # self.learnable_omegas.data.fill_(self.omega)
 
 
@@ -681,7 +681,7 @@ class SineLayer(nn.Module):
     def forward(self, input):
         res = None
         if self.enable_learnable_omega:
-            res = torch.sin(self.omega * self.learnable_omegas.mul(self.linear(input)))
+            res = torch.sin(self.omega *10000* self.learnable_omegas.mul(self.linear(input)))
         else:
             res = torch.sin(self.omega * self.linear(input))
         return res

@@ -10,10 +10,11 @@ from src.train import train_inr
 from src.utils.data_loader import ImageCompressionDataset, get_coords
 from src.utils.device import global_device
 from src.utils.log import logger
-
+import time
+import skimage.io
 
 def exp(config: MyConfig, device: torch.device=global_device):
-    logger.info(f'模型配置:{config.net.model_dump()}')
+    logger.info(f'模型配置:{config.net.model_dump(exclude_none=True)}')
     logger.info("加载和预处理图像")
     dataset = ImageCompressionDataset(config)
     logger.info(f"创建坐标网格(包含位置编码)")
@@ -48,9 +49,36 @@ def exp(config: MyConfig, device: torch.device=global_device):
     # summary(inr_model, input_data=real_coords.to(device))
     decompress_and_save(inr_model=model, base_output_path=config.save.base_output_path,
                         config=config,model_input=coords,original_image=original_image)
+def run_experiments(config_files):
+    """
+    使用传入的配置文件列表运行实验。
 
-    # 保存生成的图像到wandb
-    # logger.info("保存生成的图像到wandb")
+    参数:
+    config_files: 包含配置文件名的列表
+    """
+    # 设置默认的精度
+    torch.set_float32_matmul_precision('medium')
 
+    # 遍历每个配置文件并进行实验
+    for config_file in config_files:
+        # 加载配置
+        config = MyConfig.get_instance(config_name=config_file, force_reload=True)
 
+        # 设置MLflow实验
+        mlflow.set_experiment(config.experiment_name)
 
+        # run_name 设置为 config.experiment_name 加上 当前时间戳
+        run_name = f"{config.experiment_name}_{int(time.time())}"
+        # 开始MLflow运行并进行实验
+        with mlflow.start_run(run_name = run_name) as run:
+            # 记录该次实验使用的图片，方便在 mlflow ui 中进行分类查看
+            dataset = mlflow.data.from_numpy(
+                features=skimage.io.imread(config.train.image_path),
+                source=config.train.image_path,
+                name=os.path.basename(config.train.image_path)
+            )
+            mlflow.log_input(dataset)
+
+            logger.info("===================================================")
+            logger.info(f"Running experiment with config: {config_file}, dataset: {config.train.image_path}")
+            exp(config=config)  # 执行实验
