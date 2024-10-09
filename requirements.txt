@@ -13,3 +13,4 @@ mlflow-skinny
 pillow
 torchvision
 scikit-learn
+scikit-image

@@ -8,7 +8,7 @@ num_epochs = 1
 
 learning_rate = 0.0001
 scheduler_step_size =100
-scheduler_gamma = 0.98
+scheduler_gamma = 0.97
 
 loss_type = "MSELoss"
 target_loss = 0.00005
@@ -31,17 +31,19 @@ log_save_path = "mlruns"
 type = "SineLayer"
 out_features = 256
 is_first = true
-enable_learnable_omega = false
 [[net.layers]]
 type = "ExpLayer"
 out_features = 256
+enable_learnable_omega = true
 [[net.layers]]
 type = "ExpLayer"
 out_features = 256
+enable_learnable_omega = true
 [[net.layers]]
 type = "ExpLayer"
 out_features = 256
+enable_learnable_omega = true
 [[net.layers]]
-type = "Linear"
+type = "StackLayer"
 out_features = 3
-need_manual_init = true
+#need_manual_init = true
