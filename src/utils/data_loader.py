@@ -175,7 +175,7 @@ class ImageCompressionDataset(Dataset):
         self.img_tensor = ToTensor()(self.img)  # 转换为 PyTorch 张量，形状为 (3, H, W)
         self.h, self.w = self.img_tensor.shape[1], self.img_tensor.shape[2]
         self.coords = get_coords(self.h, self.w)  # 转换为 (h * w, 2)
-        self.coords = find_sin_cos_intersections(self.coords, k=1)
+        # self.coords = find_sin_cos_intersections(self.coords, k=1)
         # 获取图像的像素值，形状为 (h * w, 3)
         self.pixels = self.img_tensor.permute(1, 2, 0).view(-1, self.channels)
 

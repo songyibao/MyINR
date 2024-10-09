@@ -716,45 +716,67 @@ class SineLayer(nn.Module):
         return torch.sin(intermediate), intermediate
 
 @LayerRegistry.register('ExpLayer')
-class ExpLayer(nn.Module):
-    def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=60, enable_learnable_omega=False):
+class sin_fr_layer(nn.Module):
+    def __init__(self, in_features, out_features, high_freq_num=128,low_freq_num=128,phi_num=32,alpha=0.05,omega_0=30.0):
         super().__init__()
+        super(sin_fr_layer,self).__init__()
         self.in_features = in_features
         self.out_features = out_features
+        self.high_freq_num =high_freq_num
+        self.low_freq_num = low_freq_num
+        self.phi_num = phi_num
+        self.alpha=alpha
+        self.omega_0=omega_0
+        self.bases=self.init_bases()
+        self.lamb=self.init_lamb()
+        self.bias=nn.Parameter(torch.Tensor(self.out_features,1),requires_grad=True)
+        self.init_bias()
 
-        self.omega = omega_0
-        self.learnable_omegas = None
-        self.enable_learnable_omega = enable_learnable_omega
-        self.is_first = is_first
-        self.linear = nn.Linear(in_features, out_features, bias=bias)
-        self.init_weights()
-
-        if self.enable_learnable_omega:
-            tmp = 0.9*torch.ones(out_features,requires_grad=True)
-            self.learnable_omegas = Parameter(tmp)
-
-
-    def init_weights(self):
-        with torch.no_grad():
-            if self.is_first:
-                self.linear.weight.uniform_(-1 / self.in_features,
-                                            1 / self.in_features)
-            else:
-                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega,
-                                            np.sqrt(6 / self.in_features) / self.omega)
-    def my_sine(self, x, scale):
-        x = x * scale
-        y = torch.sin(x*(1+x.abs()))
-        # |x| * sinx
-        return y
-
-    def forward(self, input):
-        res = None
-        if self.enable_learnable_omega:
-            res = self.learnable_omegas.mul(torch.sin(self.omega * self.linear(input)))
+    def init_bases(self):
+        phi_set=np.array([2*math.pi*i/self.phi_num for i in range(self.phi_num)])
+        high_freq=np.array([i+1 for i in range(self.high_freq_num)])
+        low_freq=np.array([(i+1)/self.low_freq_num for i in range(self.low_freq_num)])
+        if len(low_freq)!=0:
+            T_max=2*math.pi/low_freq[0]
         else:
-            res = torch.sin(self.omega * self.linear(input))
-        return res
+            T_max=2*math.pi/min(high_freq) # 取最大周期作为取点区间
+        points=np.linspace(-T_max/2,T_max/2,self.in_features)
+        bases=torch.Tensor((self.high_freq_num+self.low_freq_num)*self.phi_num,self.in_features)
+        i=0
+        for freq in low_freq:
+            for phi in phi_set:
+                base=torch.tensor([math.cos(freq*x+phi) for x in points])
+                bases[i,:]=base
+                i+=1
+        for freq in high_freq:
+            for phi in phi_set:
+                base=torch.tensor([math.cos(freq*x+phi) for x in points])
+                bases[i,:]=base
+                i+=1
+        bases=self.alpha*bases
+        bases=nn.Parameter(bases,requires_grad=False)
+        return bases
+
+
+    def init_lamb(self):
+        self.lamb=torch.Tensor(self.out_features,(self.high_freq_num+self.low_freq_num)*self.phi_num)
+        with torch.no_grad():
+            m=(self.low_freq_num+self.high_freq_num)*self.phi_num
+            for i in range(m):
+                dominator=torch.norm(self.bases[i,:],p=2)
+                self.lamb[:,i]=nn.init.uniform_(self.lamb[:,i],-np.sqrt(6/m)/dominator/self.omega_0,np.sqrt(6/m)/dominator/self.omega_0)
+        self.lamb=nn.Parameter(self.lamb,requires_grad=True)
+        return self.lamb
+
+    def init_bias(self):
+        with torch.no_grad():
+            nn.init.zeros_(self.bias)
+
+    def forward(self,x):
+        weight=torch.matmul(self.lamb,self.bases)
+        output=torch.matmul(x,weight.transpose(0,1))
+        output=output+self.bias.T
+        return torch.sin(self.omega_0*output)
 
 @LayerRegistry.register('GaussLayer')
 class GaussLayer(nn.Module):
