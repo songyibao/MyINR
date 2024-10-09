@@ -3,7 +3,7 @@ experiment_name = "LSIREN"
 [train]
 image_path = "data/kodak-dataset/kodim05.png"
 
-num_steps = 12000
+num_steps = 20000
 num_epochs = 1
 
 learning_rate = 0.0001

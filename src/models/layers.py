@@ -1,6 +1,10 @@
 import math
+from pydoc import plain
 
+import mlflow
 import numpy as np
+from matplotlib import pyplot as plt
+from sympy.physics.quantum.sho1d import omega
 from torch import nn, Tensor
 import torch
 import torch.nn.functional as F
@@ -517,10 +521,10 @@ class PositionalEncoding(nn.Module):
 @LayerRegistry.register('Linear')
 class LinearLayer(nn.Module):
     def __init__(self, in_features: int, out_features: int, need_manual_init: bool = False,
-                 hidden_omega_0: float = 30.,use_cfloat_dtype: bool = False):
+                 hidden_omega_0: float = 30.,use_cfloat_dtype: bool = False,use_sigmod: bool = False):
         super().__init__()
         data_type = torch.float if not use_cfloat_dtype else torch.cfloat
-        self.linear = nn.Linear(in_features, out_features,dtype=data_type)
+        self.linear = nn.Linear(in_features, out_features, dtype=data_type)
         self.in_features = in_features
         self.out_features = out_features
         if need_manual_init and use_cfloat_dtype:
@@ -528,7 +532,8 @@ class LinearLayer(nn.Module):
         if need_manual_init is True:
             with torch.no_grad():
                 self.linear.weight.uniform_(-np.sqrt(6 / in_features) / hidden_omega_0,
-                                            np.sqrt(6 / in_features) / hidden_omega_0)
+                                         np.sqrt(6 / in_features) / hidden_omega_0)
+
 
     def forward(self, x):
         return self.linear(x)
@@ -637,6 +642,17 @@ class BSplineWavelet(nn.Module):
 
         return output
 
+# Sigmod层
+@LayerRegistry.register('Sigmoid')
+class SigmoidLayer(nn.Module):
+    def __init__(self, in_features: int, out_features: int):
+        super().__init__()
+        self.sigmoid = nn.Sigmoid()
+        self.in_features = in_features
+        self.out_features = out_features
+
+    def forward(self, x):
+        return self.sigmoid(x)
 
 @LayerRegistry.register('LeakyReLU')
 class LeakyReLULayer(nn.Module):
@@ -649,7 +665,14 @@ class LeakyReLULayer(nn.Module):
     def forward(self, x):
         return self.leaky_relu(x)
 
-
+class FreqFactor(nn.Module):
+    def __init__(self, dims:int, omega=60, ):
+        super().__init__()
+        self.omega = Parameter(torch.Tensor(dims))
+        # 所有值初始化为 omega
+        self.omega.data.fill_(omega)
+    def forward(self):
+        return self.omega
 @LayerRegistry.register('SineLayer')
 class SineLayer(nn.Module):
 
@@ -664,9 +687,9 @@ class SineLayer(nn.Module):
         self.is_first = is_first
         self.linear = nn.Linear(in_features, out_features, bias=bias)
         self.init_weights()
+
         if self.enable_learnable_omega:
-            self.learnable_omegas = Parameter(torch.linspace(0,3,out_features),requires_grad=True)
-            # self.learnable_omegas.data.fill_(self.omega)
+            self.l_omega = FreqFactor(out_features, omega=self.omega)
 
 
     def init_weights(self):
@@ -681,7 +704,8 @@ class SineLayer(nn.Module):
     def forward(self, input):
         res = None
         if self.enable_learnable_omega:
-            res = torch.sin(self.omega *10000* self.learnable_omegas.mul(self.linear(input)))
+            factors = self.l_omega()
+            res = torch.sin(factors.mul(self.linear(input)))
         else:
             res = torch.sin(self.omega * self.linear(input))
         return res
@@ -690,6 +714,47 @@ class SineLayer(nn.Module):
         # For visualization of activation distributions
         intermediate = self.omega * self.linear(input)
         return torch.sin(intermediate), intermediate
+
+@LayerRegistry.register('ExpLayer')
+class ExpLayer(nn.Module):
+    def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=60, enable_learnable_omega=False):
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+
+        self.omega = omega_0
+        self.learnable_omegas = None
+        self.enable_learnable_omega = enable_learnable_omega
+        self.is_first = is_first
+        self.linear = nn.Linear(in_features, out_features, bias=bias)
+        self.init_weights()
+
+        if self.enable_learnable_omega:
+            tmp = 0.9*torch.ones(out_features,requires_grad=True)
+            self.learnable_omegas = Parameter(tmp)
+
+
+    def init_weights(self):
+        with torch.no_grad():
+            if self.is_first:
+                self.linear.weight.uniform_(-1 / self.in_features,
+                                            1 / self.in_features)
+            else:
+                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega,
+                                            np.sqrt(6 / self.in_features) / self.omega)
+    def my_sine(self, x, scale):
+        x = x * scale
+        y = torch.sin(x*(1+x.abs()))
+        # |x| * sinx
+        return y
+
+    def forward(self, input):
+        res = None
+        if self.enable_learnable_omega:
+            res = self.learnable_omegas.mul(torch.sin(self.omega * self.linear(input)))
+        else:
+            res = torch.sin(self.omega * self.linear(input))
+        return res
 
 @LayerRegistry.register('GaussLayer')
 class GaussLayer(nn.Module):
@@ -711,6 +776,7 @@ class GaussLayer(nn.Module):
 
     def forward(self, input):
         return torch.exp(-(self.scale*self.linear(input))**2)
+
 
 @LayerRegistry.register('ComplexGaborLayer')
 class ComplexGaborLayer(nn.Module):

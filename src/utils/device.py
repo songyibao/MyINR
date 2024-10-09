@@ -20,6 +20,7 @@ def get_best_gpu():
 
     least_occupied_gpu = get_least_utilized_gpu()
     return torch.device(f'cuda:{least_occupied_gpu}')
+    # return torch.device(f'cuda:{1}')
 
 def get_best_device():
     os_type = platform.system()

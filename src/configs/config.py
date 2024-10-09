@@ -24,6 +24,8 @@ class NetConfig(BaseModel):
     layers: List[LayerConfig]
     in_features: Optional[int] = None
     ffm_out_features: Optional[int] = None
+    use_polar_coords: Optional[bool] = None
+    use_binary_pixels: Optional[bool] = None
 
 
 class TrainConfig(BaseModel):
@@ -38,6 +40,7 @@ class TrainConfig(BaseModel):
     loss_type: str
     h: Optional[int] = None
     w: Optional[int] = None
+    channels: Optional[int] = None
 
     @field_validator('image_path', mode='before')
     @classmethod
@@ -50,7 +53,7 @@ class TrainConfig(BaseModel):
     def model_post_init(self, __context):
         image_path = self.image_path
         image = imageio.v3.imread(image_path)
-        self.h, self.w = image.shape[:2]
+        self.h, self.w, self.channels = image.shape[:3]
 
 class SaveConfig(BaseModel):
     net_save_path: str

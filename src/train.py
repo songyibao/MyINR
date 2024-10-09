@@ -16,6 +16,7 @@ from src.utils.log import logger
 import torch.nn.functional as F
 
 
+
 def train_inr(model_input, target_image, model, train_config: TrainConfig, device=global_device):
     """
     训练INR模型, 返回训练过程中最好的模型
@@ -46,6 +47,7 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
 
     loss_class = LossRegistry.get(train_config.loss_type)
     criterion = loss_class()
+
 
     with tqdm(total=num_steps, desc=f"Training:") as pbar:
         for epoch in range(num_steps):

@@ -1,19 +1,75 @@
-import os.path
+import os
+import time
+from array import array
 
 import mlflow
+import skimage
+import toml
 import torch
+import torch.nn as nn
 from torchinfo import summary
-from src.configs.config import MyConfig
+
+from src.configs.config import NetConfig, MyConfig
 from src.decompress import decompress_and_save
-from src.models.model import ConfigurableINRModel
+from src.models.layers import LayerRegistry
 from src.train import train_inr
-from src.utils.data_loader import ImageCompressionDataset, get_coords
+from src.utils.data_loader import ImageCompressionDataset
 from src.utils.device import global_device
 from src.utils.log import logger
-import time
-import skimage.io
 
-def exp(config: MyConfig, device: torch.device=global_device):
+class StackedModel(nn.Module):
+    def __init__(self, net_config: NetConfig, in_features,out_features):
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.nets = nn.ModuleList()
+        # 判断是 in_features 参数是否传入实际值
+        if in_features is None:
+            raise ValueError("in_features 参数不能为空")
+        if out_features is None:
+            raise ValueError("out_features 参数不能为空")
+        for i in range(out_features):
+            layers = nn.ModuleList()
+            logger.info(f"第{i}层初始化时输入维度: {in_features}")
+            logger.info(f"第{i}层初始化时输出维度, 默认为1")
+            for layer_index,layer_config in enumerate(net_config.layers):
+                layer_type = layer_config.type
+                layer_class = LayerRegistry.get(layer_type)
+                if layer_class is None:
+                    raise ValueError(f"Unsupported layer type: {layer_type}")
+
+                if layer_config.in_features is None:
+                    layer_config.in_features = in_features
+
+                items = layer_config.model_dump(exclude_unset=True).items()
+                layer_params = {k: v for k, v in items if k != 'type'}
+
+                if layer_index == len(net_config.layers) - 1:
+                    layer_params['out_features'] = 1
+
+                layer = layer_class(**layer_params)
+                layers.append(layer)
+                if hasattr(layer, 'out_features'):
+                    in_features = layer.out_features
+                elif hasattr(layer, 'out_channels'):
+                    in_features = layer.out_channels
+                else:
+                    in_features = layer.out_features
+            self.nets.append(nn.Sequential(*layers))
+    def forward(self, x):
+        outputs = []  # 用来收集每个 net 的输出
+
+        # 遍历所有的子网络
+        for net in self.nets:
+            out = net(x)  # 获取每个 net 的输出，形状是 [N, 1]
+            outputs.append(out)  # 将输出添加到列表中
+
+        # 将所有输出沿着 dim=1 进行拼接，输出的形状将是 [N, numNet]
+        res = torch.cat(outputs, dim=1)
+
+        return res
+
+def exp_stack(config: MyConfig, device: torch.device=global_device):
     logger.info(f'模型配置:{config.net.model_dump(exclude_none=True)}')
     logger.info("加载和预处理图像")
     dataset = ImageCompressionDataset(config)
@@ -21,7 +77,7 @@ def exp(config: MyConfig, device: torch.device=global_device):
     coords, original_pixels, h, w, c = dataset[0]
     logger.info(f'{coords.shape}')
     original_image = original_pixels.view(h, w, c)
-    inr_model = ConfigurableINRModel(config.net, in_features=coords.shape[-1], out_features=c)
+    inr_model = StackedModel(config.net, in_features=coords.shape[-1], out_features=c)
     summary(inr_model, input_data=coords.to('cpu'))
 
     # 训练模型
@@ -40,14 +96,15 @@ def exp(config: MyConfig, device: torch.device=global_device):
     # 记录模型保存路径
     # logger.info("保存模型到wandb")
     logger.info("加载模型")
-    model = ConfigurableINRModel(config.net, in_features=coords.shape[-1], out_features=c)
-    # model.layers[0] = ConfigurableINRModel(config.pe_net, in_features=real_coords.shape[-1], out_features=learned_embedding.shape[-1])
+    model = StackedModel(config.net, in_features=coords.shape[-1], out_features=c)
+    # model.layers[0] = StackedModel(config.pe_net, in_features=real_coords.shape[-1], out_features=learned_embedding.shape[-1])
     model.load_state_dict(
         torch.load(os.path.join(config.save.net_save_path, config.save.net_name).__str__(), weights_only=True,
                    map_location="cpu"))
 
     decompress_and_save(inr_model=model, base_output_path=config.save.base_output_path,
                         config=config,model_input=coords,original_image=original_image)
+
 def run_experiments(config_files):
     """
     使用传入的配置文件列表运行实验。
@@ -80,4 +137,6 @@ def run_experiments(config_files):
 
             logger.info("===================================================")
             logger.info(f"Running experiment with config: {config_file}, dataset: {config.train.image_path}")
-            exp(config=config)  # 执行实验
+            exp_stack(config=config)  # 执行实验
+
+run_experiments(["EXP"])

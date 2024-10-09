@@ -3,8 +3,9 @@ from src.utils.mlflow_exp import run_experiments
 if __name__ == "__main__":
     # 示例：你可以在这里传入配置文件名的列表
     config_files = [
-        "SIREN",  # 示例文件名
-        "LSIREN"
+        # "EXP",  # 示例文件名
+        "LSIREN",
+        "SIREN"
     ]
 
     # 运行实验

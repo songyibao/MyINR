@@ -7,3 +7,9 @@ imageio
 torchinfo
 pydantic
 mlflow
+torch
+numpy
+mlflow-skinny
+pillow
+torchvision
+scikit-learn

@@ -1,7 +1,5 @@
 import toml
-import torch
 import torch.nn as nn
-from typing import Dict, Any
 
 from src.configs.config import NetConfig
 from src.models.layers import LayerRegistry
@@ -44,6 +42,7 @@ class ConfigurableINRModel(nn.Module):
                 in_features = layer.out_channels
             else:
                 in_features = layer.out_features
+
 
 
 

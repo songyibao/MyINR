@@ -51,6 +51,80 @@ def get_coords(h, w, data_range: int = 1):
     res = torch.stack([x_coords, y_coords], dim=-1).reshape(-1, 2)
     return res
 
+def float_to_binary(tensor):
+    # 将[0,1]之间的浮点数映射到[0,255]的整数
+    scaled_tensor = (tensor * 255).int()
+
+    # 将每个通道的像素值转换为二进制字符串，保持8位长
+    binary_tensor = torch.cat([((scaled_tensor >> i) & 1).unsqueeze(-1) for i in range(7, -1, -1)], dim=-1)
+
+    # 将结果转换为24位的形式（每个像素的3个通道展开为24个二进制位）
+    return binary_tensor.view(-1, 24)
+
+def find_sin_cos_intersections(points, k):
+    N = points.shape[0]  # 点的数量
+    intersections = torch.zeros((N, 4 * k))  # 初始化返回张量
+
+    for i in range(N):
+        a, b = points[i]  # 获取点 (a, b)
+
+        # 处理 y = a 和 y = sin(x) 的交点
+        # 解方程 a = sin(x)，找到 x 的解
+        sin_solutions = []
+        if -1 <= a <= 1:  # arcsin 只有在 [-1, 1] 范围内才有解
+            x_sol = torch.arcsin(a)  # 利用 torch 的 arcsin
+            for n in range(-k, k):  # 关于 y 轴对称的 k 个解
+                x_n = x_sol + 2 * torch.pi * n  # 利用 sin(x) 的周期性
+                sin_solutions.append(x_n.item())
+                sin_solutions.append(-x_n.item())  # 对称点
+
+        # 取前 2k 个点
+        sin_solutions = sorted(sin_solutions)[:2 * k]
+
+        # 处理 y = b 和 y = cos(x) 的交点
+        # 解方程 b = cos(x)，找到 x 的解
+        cos_solutions = []
+        if -1 <= b <= 1:  # arccos 只有在 [-1, 1] 范围内才有解
+            x_sol = torch.arccos(b)  # 利用 torch 的 arccos
+            for n in range(-k, k):  # 关于 y 轴对称的 k 个解
+                x_n = x_sol + 2 * torch.pi * n  # 利用 cos(x) 的周期性
+                cos_solutions.append(x_n.item())
+                cos_solutions.append(-x_n.item())  # 对称点
+
+        # 取前 2k 个点
+        cos_solutions = sorted(cos_solutions)[:2 * k]
+
+        # 将结果填入返回张量
+        intersections[i, :2*k] = torch.tensor(sin_solutions)
+        intersections[i, 2*k:] = torch.tensor(cos_solutions)
+
+    return intersections
+
+def cartesian_to_polar(coords, scale=2.0):
+    """
+    将笛卡尔坐标转换为极坐标，并将其与原直角坐标拼接
+    参数:
+    - coords: [H*W, 2] 的张量，笛卡尔坐标系下的 (x, y) 坐标
+    - scale: 控制转换后的 r 的缩放尺度，默认为 1.0
+
+    返回:
+    - [H*W, 4] 的张量，包含 (x, y, r, theta)
+    """
+    # 提取 x 和 y 坐标
+    x = coords[:, 0]
+    y = coords[:, 1]
+
+    # 计算极径 r，并进行缩放
+    r = torch.sqrt(x**2 + y**2) * scale
+
+    # 计算极角 theta
+    theta = torch.atan2(y, x)
+
+    # 将原始的 (x, y) 和计算出的 (r, theta) 拼接
+    cartesian_polar_coords = torch.cat((coords, r.unsqueeze(-1), theta.unsqueeze(-1)), dim=-1)
+
+    return cartesian_polar_coords
+
 class FFM():
     def __init__(self, in_features: int, out_features: int, scale: int = 10):
         self.in_features = in_features
@@ -101,8 +175,10 @@ class ImageCompressionDataset(Dataset):
         self.img_tensor = ToTensor()(self.img)  # 转换为 PyTorch 张量，形状为 (3, H, W)
         self.h, self.w = self.img_tensor.shape[1], self.img_tensor.shape[2]
         self.coords = get_coords(self.h, self.w)  # 转换为 (h * w, 2)
+        self.coords = find_sin_cos_intersections(self.coords, k=1)
         # 获取图像的像素值，形状为 (h * w, 3)
         self.pixels = self.img_tensor.permute(1, 2, 0).view(-1, self.channels)
+
 
 
         if self.config.net.layers[0].type == 'LearnableEmbedding':
@@ -114,6 +190,8 @@ class ImageCompressionDataset(Dataset):
         elif self.config.net.ffm_out_features is not None:
             self.coords = FFM(in_features=self.coords.shape[-1], out_features=self.config.net.ffm_out_features).fmap(
                 self.coords)
+        elif self.config.net.use_polar_coords:
+            self.coords = cartesian_to_polar(self.coords)
 
     def __len__(self):
         """
