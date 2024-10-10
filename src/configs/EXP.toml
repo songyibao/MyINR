@@ -34,15 +34,15 @@ is_first = true
 [[net.layers]]
 type = "ExpLayer"
 out_features = 256
-enable_learnable_omega = false
+enable_learnable_omega = true
 [[net.layers]]
 type = "ExpLayer"
 out_features = 256
-enable_learnable_omega = false
+enable_learnable_omega = true
 [[net.layers]]
 type = "ExpLayer"
 out_features = 256
-enable_learnable_omega = false
+enable_learnable_omega = true
 #[[net.layers]]
 #type = "StackLayer"
 #out_features = 3

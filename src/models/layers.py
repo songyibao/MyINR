@@ -733,11 +733,12 @@ class ExpLayer(nn.Module):
 
         if self.enable_learnable_omega:
             # self.l_omega = FreqFactor(out_features, omega=self.omega)
-            tmp = torch.ones(out_features)
+            tmp = torch.linspace(0, 10, out_features)
             self.l_omega = nn.Parameter(tmp, requires_grad=True)
 
 
     def init_weights(self):
+        # nn.init.normal_(self.linear.weight, mean=0, std=0.01)
         with torch.no_grad():
             if self.is_first:
                 self.linear.weight.uniform_(-1 / self.in_features,
@@ -746,18 +747,39 @@ class ExpLayer(nn.Module):
                 self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega,
                                             np.sqrt(6 / self.in_features) / self.omega)
     def forward(self, input):
+        # self.count += 1
         res = None
         x = self.linear(input)
         if self.enable_learnable_omega:
             res = torch.sin(self.omega * self.l_omega.mul(x))
         else:
-            res = torch.sin(self.omega * x*(1+x.abs()))
+            res = torch.sin(self.omega * x)
+        # 可视化每100轮的输入和输出
+        # if self.count % 10 == 0:
+        #     self.visualize(x, res)
         return res
+    def visualize(self, x, y):
+        plt.figure(figsize=(12, 5))
 
-    def forward_with_intermediate(self, input):
-        # For visualization of activation distributions
-        intermediate = self.omega * self.linear(input).mul(input)
-        return torch.sin(intermediate), intermediate
+        # 输入张量 x 的热图
+        plt.subplot(1, 2, 1)
+        plt.imshow(x.detach().cpu().numpy(), aspect='auto', cmap='viridis')
+        plt.colorbar()
+        plt.title('Input x')
+        plt.xlabel('Features')
+        plt.ylabel('Samples')
+
+        # 输出张量 y 的热图
+        plt.subplot(1, 2, 2)
+        plt.imshow(y.detach().cpu().numpy(), aspect='auto', cmap='viridis')
+        plt.colorbar()
+        plt.title('Output y')
+        plt.xlabel('Features')
+        plt.ylabel('Samples')
+
+        plt.tight_layout()
+        plt.show()
+
 
 @LayerRegistry.register('GaussLayer')
 class GaussLayer(nn.Module):
