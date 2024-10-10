@@ -8,6 +8,7 @@ from sympy.physics.quantum.sho1d import omega
 from torch import nn, Tensor
 import torch
 import torch.nn.functional as F
+from torch.nn import Sequential
 from torch.nn.parameter import Parameter
 
 from src.configs.config import MyConfig
@@ -521,7 +522,7 @@ class PositionalEncoding(nn.Module):
 @LayerRegistry.register('Linear')
 class LinearLayer(nn.Module):
     def __init__(self, in_features: int, out_features: int, need_manual_init: bool = False,
-                 hidden_omega_0: float = 30.,use_cfloat_dtype: bool = False,use_sigmod: bool = False):
+                 hidden_omega_0: float = 60.,use_cfloat_dtype: bool = False,use_sigmod: bool = False):
         super().__init__()
         data_type = torch.float if not use_cfloat_dtype else torch.cfloat
         self.linear = nn.Linear(in_features, out_features, dtype=data_type)
@@ -718,7 +719,7 @@ class SineLayer(nn.Module):
 @LayerRegistry.register('ExpLayer')
 class ExpLayer(nn.Module):
 
-    def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=30, enable_learnable_omega=False):
+    def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=60, enable_learnable_omega=False):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -733,7 +734,6 @@ class ExpLayer(nn.Module):
         if self.enable_learnable_omega:
             # self.l_omega = FreqFactor(out_features, omega=self.omega)
             tmp = torch.ones(out_features)
-            tmp.data.uniform_(1,2)
             self.l_omega = nn.Parameter(tmp, requires_grad=True)
 
 
@@ -747,15 +747,16 @@ class ExpLayer(nn.Module):
                                             np.sqrt(6 / self.in_features) / self.omega)
     def forward(self, input):
         res = None
+        x = self.linear(input)
         if self.enable_learnable_omega:
-            res = torch.sin(self.omega * self.l_omega.mul(self.linear(input)))
+            res = torch.sin(self.omega * self.l_omega.mul(x))
         else:
-            res = torch.sin(self.omega * self.linear(input))
+            res = torch.sin(self.omega * x*(1+x.abs()))
         return res
 
     def forward_with_intermediate(self, input):
         # For visualization of activation distributions
-        intermediate = self.omega * self.linear(input)
+        intermediate = self.omega * self.linear(input).mul(input)
         return torch.sin(intermediate), intermediate
 
 @LayerRegistry.register('GaussLayer')
@@ -841,13 +842,11 @@ class StackLayer(nn.Module):
         for i in range(out_features):
             layer = nn.Linear(in_features, 1)
             with torch.no_grad():
-                layer.weight.uniform_(-np.sqrt(6 / in_features) / 30,
-                                        np.sqrt(6 / in_features) / 30)
+                layer.weight.random_(0,1)
             self.layers.append(layer)
 
     def forward(self, x):
         outputs = []  # 用来收集每个 net 的输出
-
         # 遍历所有的子网络
         for net in self.layers:
             out = net(x)  # 获取每个 net 的输出，形状是 [N, 1]
@@ -855,4 +854,5 @@ class StackLayer(nn.Module):
 
         # 将所有输出沿着 dim=1 进行拼接，输出的形状将是 [N, numNet]
         res = torch.cat(outputs, dim=1)
+
         return res

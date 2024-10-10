@@ -3,12 +3,12 @@ experiment_name = "EXP"
 [train]
 image_path = "data/kodak-dataset/kodim05.png"
 
-num_steps = 20000
+num_steps = 15000
 num_epochs = 1
 
 learning_rate = 0.0001
 scheduler_step_size =100
-scheduler_gamma = 0.97
+scheduler_gamma = 0.98
 
 loss_type = "MSELoss"
 target_loss = 0.00005
@@ -34,16 +34,20 @@ is_first = true
 [[net.layers]]
 type = "ExpLayer"
 out_features = 256
-enable_learnable_omega = true
+enable_learnable_omega = false
 [[net.layers]]
 type = "ExpLayer"
 out_features = 256
-enable_learnable_omega = true
+enable_learnable_omega = false
 [[net.layers]]
 type = "ExpLayer"
 out_features = 256
-enable_learnable_omega = true
+enable_learnable_omega = false
+#[[net.layers]]
+#type = "StackLayer"
+#out_features = 3
+
 [[net.layers]]
-type = "StackLayer"
+type = "Linear"
 out_features = 3
-#need_manual_init = true
+need_manual_init = true
