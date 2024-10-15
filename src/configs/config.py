@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, ClassVar
+from typing import List, Optional, ClassVar, Self
 
 import imageio.v3
 import toml
@@ -19,6 +19,9 @@ class LayerConfig(BaseModel):
     use_cfloat_dtype: Optional[bool] = None # 是否使用 torch.cfloat 数据类型, 配合 WIRE: ComplexGaborLayer 使用
     use_relu: Optional[bool] = None # Linear层参数, 是否使用 ReLU 激活函数
     layer_index: Optional[int] = None # 用于记录层的索引
+    omega_0: Optional[float] = None # SineLayer 的 omega_0 参数
+
+
 
 
 class NetConfig(BaseModel):
@@ -34,10 +37,17 @@ class NetConfig(BaseModel):
     use_binary_pixels: Optional[bool] = None
     use_learnable_coords: Optional[bool] = None
 
+    @model_validator(mode='after')
+    def block_model_params(self) -> Self:
+        """when use_block_model is True, num_blocks must be provided"""
+        if self.use_block_model and self.num_blocks is None:
+            raise ValueError("num_blocks must be provided when use_block_model is True")
+        return self
 
 class TrainConfig(BaseModel):
     image_path: str
     learning_rate: float
+    learning_rate_final_ratio: Optional[float] = 0.1
     num_steps: int
     num_epochs: int
     patience: int

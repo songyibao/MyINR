@@ -20,6 +20,8 @@ if __name__ == "__main__":
         # "MLP",
         # "LSIREN_Block",
         # "LSIREN",
+        # "FINER",
+        # "FINER_Block"
     ]
 
     # 运行实验

@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import mlflow
 import numpy as np
 import torch
@@ -27,6 +29,7 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
     :param device: 训练设备
     """
     learning_rate = train_config.learning_rate
+    learning_rate_final_ratio = train_config.learning_rate_final_ratio
     num_steps = train_config.num_steps
     # num_steps = 10 # for test
     patience = train_config.patience
@@ -41,9 +44,8 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
     model_input = model_input.to(device)
     target_image = target_image.to(device)
 
-
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    scheduler = StepLR(optimizer, step_size=train_config.scheduler_step_size, gamma=train_config.scheduler_gamma)
+    scheduler = optim.lr_scheduler.LambdaLR(optimizer, lambda step: learning_rate_final_ratio ** min(step / num_steps, 1))
 
     loss_class = LossRegistry.get(train_config.loss_type)
     criterion = loss_class()
@@ -74,7 +76,7 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
 
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
-                best_model_state = model.state_dict()
+                best_model_state = deepcopy(model.state_dict())
                 patience_counter = 0
             else:
                 patience_counter += 1

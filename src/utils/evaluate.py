@@ -37,7 +37,7 @@ def model_size_in_bits(model):
                for tensors in (model.parameters(), model.buffers()))
 
 
-def calculate_bpp(image: torch.Tensor, model: torch.nn.Module):
+def calculate_bpp(image: torch.Tensor, model: torch.nn.Module) -> float:
     """Computes size in bits per pixel of model.
 
     Args:
@@ -45,7 +45,9 @@ def calculate_bpp(image: torch.Tensor, model: torch.nn.Module):
         model (torch.nn.Module): Model used to fit image.
     """
     num_pixels = np.prod(image.shape) / 3  # Dividing by 3 because of RGB channels
-    return model_size_in_bits(model=model) / num_pixels
+    res = model_size_in_bits(model=model) / num_pixels
+    return float(res)  # Convert np.float64 to Python float
+
 
 def binary_to_float(binary_tensor):
     # 获取输入张量的设备

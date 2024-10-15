@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 
 
 def get_coordinate_grid(h: int, w: int, device: torch.device):
@@ -37,13 +38,31 @@ def get_mgrid(sidelen, dim=2):
     mgrid = mgrid.reshape(-1, dim)
     return mgrid
 
+class PositionalEncoding(nn.Module):
+    def __init__(self, num_frequencies, logscale=True):
+        super().__init__()
+        self.N_freqs = num_frequencies
+        self.funcs = [torch.sin, torch.cos]
+
+        if logscale:
+            self.freq_bands = 2**torch.linspace(0, num_frequencies - 1, num_frequencies)
+        else:
+            self.freq_bands = torch.linspace(1, 2 ** (num_frequencies - 1), num_frequencies)
+
+    def forward(self, x):
+        out = [x]
+        for freq in self.freq_bands:
+            for func in self.funcs:
+                out += [func(freq * x)]
+        return torch.cat(out, -1)
 # 位置编码
 def positional_encoding(coords, num_frequencies=10):
-    encoded = []
-    for i in range(num_frequencies):
-        for fn in [torch.sin, torch.cos]:
-            encoded.append(fn(2.0 ** i * coords))
-    return torch.cat(encoded, dim=-1)
+    return PositionalEncoding(num_frequencies)(coords)
+    # encoded = []
+    # for i in range(num_frequencies):
+    #     for fn in [torch.sin, torch.cos]:
+    #         encoded.append(fn(2.0 ** i * coords))
+    # return torch.cat(encoded, dim=-1)
 
 def periodic_encoding(coords, num_frequencies=10, period=256):
     """

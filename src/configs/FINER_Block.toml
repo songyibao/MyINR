@@ -1,0 +1,50 @@
+experiment_name = "FINER_Block"
+
+[train]
+image_path = "data/kodak-dataset/kodim04.png"
+
+num_steps = 2000
+num_epochs = 1
+
+learning_rate = 0.0005
+scheduler_step_size =100
+scheduler_gamma = 0.99
+
+loss_type = "MSELoss"
+target_loss = 0.00005
+patience = 600
+
+[save]
+net_save_path = "res"
+net_name = "FINER_Block"
+base_output_path = "res"
+image_save_path = "res"
+
+[misc]
+log_save_path = "mlruns"
+
+[net]
+use_block_model = true
+num_blocks = 9
+
+[[net.layers]]
+type = "FinerLayer"
+out_features = 256
+omega_0 = 30.0
+is_first = true
+[[net.layers]]
+type = "FinerLayer"
+out_features = 256
+omega_0 = 30.0
+[[net.layers]]
+type = "FinerLayer"
+out_features = 256
+omega_0 = 30.0
+[[net.layers]]
+type = "FinerLayer"
+out_features = 256
+omega_0 = 30.0
+[[net.layers]]
+type = "FinerOutmostLinear"
+out_features = 3
+omega_0 = 30.0

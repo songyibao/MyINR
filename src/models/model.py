@@ -1,7 +1,7 @@
 import math
 
 import torch
-from kan.KANLayer import *
+from torch import nn
 
 from src.configs.config import NetConfig, MyConfig
 from src.models.layers import LayerRegistry
@@ -172,11 +172,11 @@ class ConfigurableBlockModel(nn.Module):
         self.nets = nn.ParameterList(self.nets)
     def forward(self, x):
         output = []
-        for i in range(self.num_blocks):
-            if i == self.num_blocks - 1:
-                output.append(self.nets[i](x[i*self.block_size:,:]))
-            else:
-                output.append(self.nets[i](x[i*self.block_size:(i+1)*self.block_size,:]))
+        last_index = self.num_blocks - 1
+        for i in range(last_index):
+            output.append(self.nets[i](x[i*self.block_size:(i+1)*self.block_size,:]))
+        # 最后一个block的 N 不同，但与其他block的 N 的差值小于 self.num_blocks
+        output.append(self.nets[last_index](x[last_index*self.block_size:,:]))
         y = torch.cat(output, dim=0)
         if self.nets[0][0].__class__.__name__ == 'ComplexGaborLayer':
             y = y.real

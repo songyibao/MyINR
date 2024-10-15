@@ -3,6 +3,8 @@ import os.path
 import mlflow
 import numpy as np
 import torch
+from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
+# from mlflow.data.sources import LocalArtifactDatasetSource
 from mlflow.models import ModelSignature
 from mlflow.types import Schema, TensorSpec
 from torchinfo import summary
@@ -45,7 +47,7 @@ def exp(config: MyConfig, device: torch.device=global_device):
         input_schema = Schema([TensorSpec(np.dtype(np.float32), coords.shape)])
         output_schema = Schema([TensorSpec(np.dtype(np.float32), (coords.shape[0], c))])
         signature = ModelSignature(inputs=input_schema, outputs=output_schema)
-        mlflow.pytorch.log_model(trained_inr_model, "model", signature=signature)
+        mlflow.pytorch.log_model(trained_inr_model, "model", signature=signature,pip_requirements=["torch", "-r requirements.txt"])
     # 保存模型
     logger.info("保存模型")
 
@@ -76,22 +78,23 @@ def run_experiments(config_files):
     for config_file in config_files:
         # 加载配置
         config = MyConfig.get_instance(config_name=config_file, force_reload=True)
-
         # 设置MLflow实验
         mlflow.set_experiment(config_file)
-
         # run_name 加上 当前时间戳
         run_name = f"{config_file}_{int(time.time())}"
         # 开始MLflow运行并进行实验
         with mlflow.start_run(run_name = run_name) as run:
-            # 记录该次实验使用的图片，方便在 mlflow ui 中进行分类查看
+            # 使用的图片, 仅用于区分, 方便在 mlflow ui 中进行分类查看
             dataset = mlflow.data.from_numpy(
                 features=skimage.io.imread(config.train.image_path),
-                source=config.train.image_path,
+                source=FileSystemDatasetSource(),
                 name=os.path.basename(config.train.image_path)
             )
             mlflow.log_input(dataset)
 
-            logger.info("===================================================")
+            logger.info("====================START===============================")
             logger.info(f"Running experiment with config: {config_file}, dataset: {config.train.image_path}")
             exp(config=config)  # 执行实验
+            logger.info("====================END===============================")
+
+    logger.info("All experiments completed successfully!!!.")
