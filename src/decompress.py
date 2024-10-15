@@ -106,7 +106,7 @@ def decompress_and_save(inr_model, config: MyConfig, base_output_path: str, mode
     # 创建并保存实验摘要
     exp_summary = {
         "Timestamp": datetime.datetime.now().isoformat(),
-        "Config": config.model_dump(),
+        "Config": config.model_dump(exclude_none=True),
         "Evaluation Results": result,
         # "Original Image": original_image_path,
         # "Reconstructed Image": img_save_path,

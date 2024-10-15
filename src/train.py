@@ -4,7 +4,7 @@ import torch
 import torch.optim as optim
 from piq import TVLoss
 from torch import nn
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import StepLR, LambdaLR
 from torchinfo import summary
 from tqdm import tqdm
 
@@ -57,6 +57,7 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
             output_image = output.view(target_image.shape)
 
             loss = criterion(output_image, target_image)
+            psnr = 10 * torch.log10(1 / loss)
 
             loss.backward()
 
@@ -91,16 +92,18 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
                 "Max Patience": f'{max_patience_counter:>4}'
             }
 
-            evaluate_res = evaluate_tensor_h_w_3(target_image, torch.clamp(output_image, 0, 1)) # {'PSNR': float,'MS-SSIM': float}
-            update_value.update(evaluate_res)
+            # evaluate_res = evaluate_tensor_h_w_3(target_image, torch.clamp(output_image, 0, 1)) # {'PSNR': float,'MS-SSIM': float}
+            update_value.update({"PSNR": f'{psnr:.2f}'})
             pbar.set_postfix(update_value)
             pbar.update()
             if mlflow.active_run() is not None:
-                mlflow.log_metric("Loss", loss.item(), step=epoch)
-                mlflow.log_metric("PSNR", evaluate_res['PSNR'], step=epoch)
-                mlflow.log_metric("MS-SSIM", evaluate_res['MS-SSIM'], step=epoch)
-                mlflow.log_metric("LR", scheduler.get_last_lr()[0], step=epoch)
-                mlflow.log_metric("Patience", patience_counter, step=epoch)
+                mlflow.log_metrics({
+                    "Loss": best_val_loss,
+                    "PSNR": psnr.item(),
+                    # "MS-SSIM": evaluate_res['MS-SSIM'],
+                    "LR": scheduler.get_last_lr()[0],
+                    "Patience": patience_counter
+                }, step=epoch)
 
 
     logger.info(f'模型训练完成,测试图像重建结果')
@@ -111,11 +114,13 @@ def train_inr(model_input, target_image, model, train_config: TrainConfig, devic
     logger.info(evaluate_res)
     # 用最好结果进行最后一次日志记录
     if mlflow.active_run() is not None:
-        mlflow.log_metric("Loss", best_val_loss, step=num_steps)
-        mlflow.log_metric("PSNR", evaluate_res['PSNR'], step=num_steps)
-        mlflow.log_metric("MS-SSIM", evaluate_res['MS-SSIM'], step=num_steps)
-        mlflow.log_metric("LR", scheduler.get_last_lr()[0], step=num_steps)
-        mlflow.log_metric("Patience", patience_counter, step=num_steps)
+        mlflow.log_metrics({
+            "Loss": best_val_loss,
+            "PSNR": evaluate_res['PSNR'],
+            # "MS-SSIM": evaluate_res['MS-SSIM'],
+            "LR": scheduler.get_last_lr()[0],
+            "Patience": patience_counter
+        }, step=num_steps)
 
     return model
 

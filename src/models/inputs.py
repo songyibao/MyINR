@@ -39,7 +39,7 @@ def get_mgrid(sidelen, dim=2):
 
 # 位置编码
 def positional_encoding(coords, num_frequencies=10):
-    encoded = [coords]
+    encoded = []
     for i in range(num_frequencies):
         for fn in [torch.sin, torch.cos]:
             encoded.append(fn(2.0 ** i * coords))

@@ -17,8 +17,14 @@ class LayerConfig(BaseModel):
     need_manual_init: Optional[bool] = None # 控制 LinearLayer 是否需要手动初始化
     enable_learnable_omega: Optional[bool] = None # SineLayer 是否启用可学习的 omega 数组
     use_cfloat_dtype: Optional[bool] = None # 是否使用 torch.cfloat 数据类型, 配合 WIRE: ComplexGaborLayer 使用
+    use_relu: Optional[bool] = None # Linear层参数, 是否使用 ReLU 激活函数
+    layer_index: Optional[int] = None # 用于记录层的索引
+
 
 class NetConfig(BaseModel):
+    use_stack_model: bool = False
+    use_block_model: bool = False
+    num_blocks: Optional[int] = None
     num_frequencies: Optional[int] = None
     degree: Optional[int] = None
     layers: List[LayerConfig]
@@ -26,6 +32,7 @@ class NetConfig(BaseModel):
     ffm_out_features: Optional[int] = None
     use_polar_coords: Optional[bool] = None
     use_binary_pixels: Optional[bool] = None
+    use_learnable_coords: Optional[bool] = None
 
 
 class TrainConfig(BaseModel):

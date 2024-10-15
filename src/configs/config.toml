@@ -1,7 +1,7 @@
 experiment_name = "LSIREN"
 
 [train]
-image_path = "data/kodak-dataset/kodim05.png"
+image_path = "data/kodak-dataset/kodim19.png"
 
 num_steps = 10000
 num_epochs = 1

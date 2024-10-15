@@ -19,16 +19,18 @@ from src.utils.device import global_device
 from src.utils.log import logger
 
 
-class StackedModel(nn.Module):
-    def __init__(self, in_features,out_features,hidden_layers,hidden_features):
+class BlockModel(nn.Module):
+    def __init__(self, in_features, out_features, hidden_layers, hidden_features, input_size:int, num_blocks:int):
         super().__init__()
-        hidden_layers = int(hidden_layers / out_features)
-        # real_hidden_features = hidden_features/math.sqrt(out_features)
-        self.real_hidden_features = hidden_features
+        # hidden_layers = int(hidden_layers / out_features)
+        self.num_blocks = num_blocks
+        self.input_size = input_size
+        self.block_size = self.input_size // num_blocks
+        self.real_hidden_features = int(hidden_features / math.sqrt(num_blocks))
         self.in_features = in_features
         self.out_features = out_features
         self.nets = nn.ModuleList()
-        for i in range(self.out_features):
+        for i in range(self.num_blocks):
             net = nn.ModuleList()
             layer_class = LayerRegistry.get("SineLayer")
             layer_params = {
@@ -46,29 +48,25 @@ class StackedModel(nn.Module):
                     "out_features": self.real_hidden_features,
                 }
                 net.append(layer_class(**layer_params))
-            # linear_class = LayerRegistry.get("Linear")
-            # layer_params = {
-            #     "in_features": self.real_hidden_features,
-            #     "out_features": 1,
-            #     "need_manual_init":True
-            # }
-            # net.append(linear_class(**layer_params))
-            self.nets.append(nn.Sequential(*net))
             linear_class = LayerRegistry.get("Linear")
             layer_params = {
-                "in_features": self.real_hidden_features*out_features,
+                "in_features": self.real_hidden_features,
                 "out_features": out_features,
                 "need_manual_init":True
             }
-            self.final_linear = linear_class(**layer_params)
+            net.append(linear_class(**layer_params))
+            self.nets.append(nn.Sequential(*net))
 
         self.nets = nn.ParameterList(self.nets)
     def forward(self, x):
         output = []
-        for i in range(self.out_features):
-            output.append(self.nets[i](x))
-        x1 = torch.cat(output, dim=-1)
-        return self.final_linear(x1)
+        for i in range(self.num_blocks):
+            if i == self.num_blocks - 1:
+                output.append(self.nets[i](x[i*self.block_size:,:]))
+            else:
+                output.append(self.nets[i](x[i*self.block_size:(i+1)*self.block_size,:]))
+        x1 = torch.cat(output, dim=0)
+        return x1
 
 def exp_stack(config: MyConfig, device: torch.device=global_device):
     logger.info(f'模型配置:{config.net.model_dump(exclude_none=True)}')
@@ -78,7 +76,7 @@ def exp_stack(config: MyConfig, device: torch.device=global_device):
     coords, original_pixels, h, w, c = dataset[0]
     logger.info(f'{coords.shape}')
     original_image = original_pixels.view(h, w, c)
-    inr_model = StackedModel(in_features=coords.shape[-1], out_features=c,hidden_layers=3,hidden_features=256)
+    inr_model = BlockModel(in_features=coords.shape[-1], out_features=c, hidden_layers=3, hidden_features=256, input_size=coords.shape[0], num_blocks=3)
     summary(inr_model, input_data=coords.to('cpu'))
 
     # 训练模型
@@ -97,7 +95,7 @@ def exp_stack(config: MyConfig, device: torch.device=global_device):
     # 记录模型保存路径
     # logger.info("保存模型到wandb")
     logger.info("加载模型")
-    model = StackedModel(in_features=coords.shape[-1], out_features=c,hidden_layers=3,hidden_features=256)
+    model = BlockModel(in_features=coords.shape[-1], out_features=c, hidden_layers=3, hidden_features=256, input_size=coords.shape[0], num_blocks=3)
     # model.layers[0] = StackedModel(config.pe_net, in_features=real_coords.shape[-1], out_features=learned_embedding.shape[-1])
     model.load_state_dict(
         torch.load(os.path.join(config.save.net_save_path, config.save.net_name).__str__(), weights_only=True,

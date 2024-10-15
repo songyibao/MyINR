@@ -1,14 +1,14 @@
-experiment_name = "WIRE"
+experiment_name = "SIREN_Block"
 
 [train]
 image_path = "data/kodak-dataset/kodim19.png"
 
-num_steps = 15000
+num_steps = 20000
 num_epochs = 1
 
 learning_rate = 0.0001
-scheduler_step_size = 1000
-scheduler_gamma = 0.8
+scheduler_step_size =100
+scheduler_gamma = 0.99
 
 loss_type = "MSELoss"
 target_loss = 0.00005
@@ -16,7 +16,7 @@ patience = 600
 
 [save]
 net_save_path = "res"
-net_name = "WIRE"
+net_name = "SIREN_Block"
 base_output_path = "res"
 image_save_path = "res"
 
@@ -24,21 +24,29 @@ image_save_path = "res"
 log_save_path = "mlruns"
 
 
+# enable_learnable_omega = false SineLayer is the same as the original SIREN
 [net]
+use_block_model = true
+num_blocks = 9
+
 [[net.layers]]
-type = "ComplexGaborLayer"
+type = "SineLayer"
 out_features = 256
 is_first = true
+enable_learnable_omega = false
 [[net.layers]]
-type = "ComplexGaborLayer"
+type = "SineLayer"
 out_features = 256
+enable_learnable_omega = false
 [[net.layers]]
-type = "ComplexGaborLayer"
+type = "SineLayer"
 out_features = 256
+enable_learnable_omega = false
 [[net.layers]]
-type = "ComplexGaborLayer"
+type = "SineLayer"
 out_features = 256
+enable_learnable_omega = false
 [[net.layers]]
 type = "Linear"
 out_features = 3
-use_cfloat_dtype = true # WIRE
+need_manual_init = true

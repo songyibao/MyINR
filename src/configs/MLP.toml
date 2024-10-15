@@ -1,9 +1,9 @@
 experiment_name = "MLP"
 
 [train]
-image_path = "data/kodak-dataset/kodim05.png"
+image_path = "data/kodak-dataset/kodim19.png"
 
-num_steps = 12000
+num_steps = 15000
 num_epochs = 1
 
 learning_rate = 0.0001
@@ -29,21 +29,15 @@ log_save_path = "mlruns"
 [[net.layers]]
 type = "Linear"
 out_features = 256
-[[net.layers]]
-type = "ReLU"
-out_features = 256
+use_relu = true
 [[net.layers]]
 type = "Linear"
 out_features = 256
-[[net.layers]]
-type = "ReLU"
-out_features = 256
+use_relu = true
 [[net.layers]]
 type = "Linear"
 out_features = 256
-[[net.layers]]
-type = "ReLU"
-out_features = 256
+use_relu = true
 [[net.layers]]
 type = "Linear"
 out_features = 3 # 代码中会根据图像通道数自动处理最后一层的输出

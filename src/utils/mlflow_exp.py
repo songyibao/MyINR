@@ -1,11 +1,14 @@
 import os.path
 
 import mlflow
+import numpy as np
 import torch
+from mlflow.models import ModelSignature
+from mlflow.types import Schema, TensorSpec
 from torchinfo import summary
 from src.configs.config import MyConfig
 from src.decompress import decompress_and_save
-from src.models.model import ConfigurableINRModel
+from src.models.model import ConfigurableINRModel, ConfigurableStackedModel, ConfigurableBlockModel
 from src.train import train_inr
 from src.utils.data_loader import ImageCompressionDataset, get_coords
 from src.utils.device import global_device
@@ -21,7 +24,13 @@ def exp(config: MyConfig, device: torch.device=global_device):
     coords, original_pixels, h, w, c = dataset[0]
     logger.info(f'{coords.shape}')
     original_image = original_pixels.view(h, w, c)
-    inr_model = ConfigurableINRModel(config.net, in_features=coords.shape[-1], out_features=c)
+    if config.net.use_block_model:
+        model_class = ConfigurableBlockModel
+        inr_model = model_class(config.net, in_features=coords.shape[-1], out_features=c,input_size=coords.shape[0])
+    else:
+        model_class = ConfigurableStackedModel if config.net.use_stack_model else ConfigurableINRModel
+        inr_model = model_class(config.net, in_features=coords.shape[-1], out_features=c)
+
     summary(inr_model, input_data=coords.to('cpu'))
 
     # 训练模型
@@ -33,15 +42,20 @@ def exp(config: MyConfig, device: torch.device=global_device):
     trained_inr_model = trained_inr_model.to('cpu')
     torch.save(trained_inr_model.state_dict(),os.path.join(config.save.net_save_path, config.save.net_name).__str__())
     if mlflow.active_run() is not None:
-        mlflow.pytorch.log_model(trained_inr_model, "model")
+        input_schema = Schema([TensorSpec(np.dtype(np.float32), coords.shape)])
+        output_schema = Schema([TensorSpec(np.dtype(np.float32), (coords.shape[0], c))])
+        signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+        mlflow.pytorch.log_model(trained_inr_model, "model", signature=signature)
     # 保存模型
     logger.info("保存模型")
 
-    # 记录模型保存路径
-    # logger.info("保存模型到wandb")
     logger.info("加载模型")
-    model = ConfigurableINRModel(config.net, in_features=coords.shape[-1], out_features=c)
-    # model.layers[0] = ConfigurableINRModel(config.pe_net, in_features=real_coords.shape[-1], out_features=learned_embedding.shape[-1])
+    if config.net.use_block_model:
+        model_class = ConfigurableBlockModel
+        model = model_class(config.net, in_features=coords.shape[-1], out_features=c,input_size=coords.shape[0])
+    else:
+        model_class = ConfigurableStackedModel if config.net.use_stack_model else ConfigurableINRModel
+        model = model_class(config.net, in_features=coords.shape[-1], out_features=c)
     model.load_state_dict(
         torch.load(os.path.join(config.save.net_save_path, config.save.net_name).__str__(), weights_only=True,
                    map_location="cpu"))
@@ -64,10 +78,10 @@ def run_experiments(config_files):
         config = MyConfig.get_instance(config_name=config_file, force_reload=True)
 
         # 设置MLflow实验
-        mlflow.set_experiment(config.experiment_name)
+        mlflow.set_experiment(config_file)
 
-        # run_name 设置为 config.experiment_name 加上 当前时间戳
-        run_name = f"{config.experiment_name}_{int(time.time())}"
+        # run_name 加上 当前时间戳
+        run_name = f"{config_file}_{int(time.time())}"
         # 开始MLflow运行并进行实验
         with mlflow.start_run(run_name = run_name) as run:
             # 记录该次实验使用的图片，方便在 mlflow ui 中进行分类查看

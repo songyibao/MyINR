@@ -1,10 +1,8 @@
 import math
-from pydoc import plain
 
 import mlflow
 import numpy as np
 from matplotlib import pyplot as plt
-from sympy.physics.quantum.sho1d import omega
 from torch import nn, Tensor
 import torch
 import torch.nn.functional as F
@@ -441,17 +439,31 @@ class Fourier_reparam_linear(nn.Module):
 
 @LayerRegistry.register('FourierFeatureMapping')
 class FourierFeatureMapping(nn.Module):
-    def __init__(self, in_features, out_features, scale=10):
+    def __init__(self, in_features, out_features,omega_0=30.):
         super(FourierFeatureMapping, self).__init__()
-        self.B = nn.Parameter(torch.randn((in_features, out_features)) * scale, requires_grad=True)
+        self.omega_0 = omega_0
+        self.B = nn.Parameter(torch.ones((in_features, int(out_features / 2))), requires_grad=True)
+        self.B.data.uniform_(-math.sqrt(6 / in_features) / omega_0, math.sqrt(6 / in_features) / omega_0)
         self.in_features = in_features
-        self.out_features = out_features * 2
+        self.out_features = out_features
 
     def forward(self, x):
-        x_proj = 2 * torch.pi * x @ self.B
+        x_proj = x @ self.B * self.omega_0 *self.omega_0
         return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
+@LayerRegistry.register('LearnablePE')
+class LearnablePositionEncoding(nn.Module):
+    def __init__(self, in_features, out_features):
+        self.in_features = in_features
+        self.out_features = out_features
+        super(LearnablePositionEncoding, self).__init__()
+        # 定义线性层，将输入维度从 k 映射到 l
+        self.linear = nn.Linear(in_features, out_features)
 
-
+    def forward(self, x):
+        # x 的形状为 [N, k]
+        # 通过线性层进行变换
+        embedded = self.linear(x)
+        return embedded
 @LayerRegistry.register('LearnableEmbedding')
 class LearnableEmbedding(nn.Module):
     def __init__(self, in_features, out_features):
@@ -465,6 +477,8 @@ class LearnableEmbedding(nn.Module):
 
     def forward(self, x):
         return self.embedding(x)
+
+
 @LayerRegistry.register('Embedding')
 class Embedding(nn.Module):
     def __init__(self, in_features, num_frequencies, logscale=True):
@@ -479,7 +493,7 @@ class Embedding(nn.Module):
         self.out_channels = in_features * (len(self.funcs) * num_frequencies + 1)
 
         if logscale:
-            self.freq_bands = 2**torch.linspace(0, num_frequencies - 1, num_frequencies)
+            self.freq_bands = 2 ** torch.linspace(0, num_frequencies - 1, num_frequencies)
         else:
             self.freq_bands = torch.linspace(1, 2 ** (num_frequencies - 1), num_frequencies)
 
@@ -498,8 +512,9 @@ class Embedding(nn.Module):
         out = [x]
         for freq in self.freq_bands:
             for func in self.funcs:
-                out += [func(freq*x)]
+                out += [func(freq * x)]
         return torch.cat(out, -1)
+
 
 @LayerRegistry.register('PosEncodingNeRF')
 class PositionalEncoding(nn.Module):
@@ -522,22 +537,28 @@ class PositionalEncoding(nn.Module):
 @LayerRegistry.register('Linear')
 class LinearLayer(nn.Module):
     def __init__(self, in_features: int, out_features: int, need_manual_init: bool = False,
-                 hidden_omega_0: float = 60.,use_cfloat_dtype: bool = False,use_sigmod: bool = False):
+                 hidden_omega_0: float = 60., use_cfloat_dtype: bool = False, use_relu: bool = False):
         super().__init__()
         data_type = torch.float if not use_cfloat_dtype else torch.cfloat
-        self.linear = nn.Linear(in_features, out_features, dtype=data_type)
-        self.in_features = in_features
-        self.out_features = out_features
+        linear = nn.Linear(in_features, out_features, dtype=data_type)
         if need_manual_init and use_cfloat_dtype:
             raise ValueError('WIRE(use_cfloat_dtype) and SIREN(need_manual_init) cannot be used together')
         if need_manual_init is True:
             with torch.no_grad():
-                self.linear.weight.uniform_(-np.sqrt(6 / in_features) / hidden_omega_0,
-                                         np.sqrt(6 / in_features) / hidden_omega_0)
-
+                linear.weight.uniform_(-np.sqrt(6 / in_features) / hidden_omega_0,
+                                       np.sqrt(6 / in_features) / hidden_omega_0)
+        if use_relu:
+            self.net = nn.Sequential(
+                linear,
+                nn.ReLU()
+            )
+        else:
+            self.net = linear
+        self.in_features = in_features
+        self.out_features = out_features
 
     def forward(self, x):
-        return self.linear(x)
+        return self.net(x)
 
 
 @LayerRegistry.register('FinalLinear')
@@ -643,6 +664,7 @@ class BSplineWavelet(nn.Module):
 
         return output
 
+
 # Sigmod层
 @LayerRegistry.register('Sigmoid')
 class SigmoidLayer(nn.Module):
@@ -655,6 +677,7 @@ class SigmoidLayer(nn.Module):
     def forward(self, x):
         return self.sigmoid(x)
 
+
 @LayerRegistry.register('LeakyReLU')
 class LeakyReLULayer(nn.Module):
     def __init__(self, in_features: int, out_features: int, negative_slope: float = 0.01):
@@ -666,14 +689,18 @@ class LeakyReLULayer(nn.Module):
     def forward(self, x):
         return self.leaky_relu(x)
 
+
 class FreqFactor(nn.Module):
-    def __init__(self, dims:int, omega=60, ):
+    def __init__(self, dims: int, omega=60, ):
         super().__init__()
         self.omega = Parameter(torch.Tensor(dims))
         # 所有值初始化为 omega
         self.omega.data.fill_(omega)
+
     def forward(self):
         return self.omega
+
+
 @LayerRegistry.register('SineLayer')
 class SineLayer(nn.Module):
 
@@ -692,7 +719,6 @@ class SineLayer(nn.Module):
         if self.enable_learnable_omega:
             self.l_omega = FreqFactor(out_features, omega=self.omega)
 
-
     def init_weights(self):
         with torch.no_grad():
             if self.is_first:
@@ -704,17 +730,58 @@ class SineLayer(nn.Module):
 
     def forward(self, input):
         res = None
+        x = self.linear(input)
         if self.enable_learnable_omega:
             factors = self.l_omega()
-            res = torch.sin(factors.mul(self.linear(input)))
+            res = torch.sin(factors.mul(x))
         else:
-            res = torch.sin(self.omega * self.linear(input))
+            res = torch.sin(self.omega * x)
         return res
 
     def forward_with_intermediate(self, input):
         # For visualization of activation distributions
         intermediate = self.omega * self.linear(input)
         return torch.sin(intermediate), intermediate
+
+
+class SinCosActivation(nn.Module):
+    def __init__(self, num_sinusoids=1, omega_0=60):
+        super(SinCosActivation, self).__init__()
+        self.omega_0 = omega_0
+        self.num_sinusoids = num_sinusoids
+
+        # 可学习的振幅权重，并进行归一化
+        self.amplitudes_sin = nn.Parameter(torch.randn(num_sinusoids), requires_grad=True)
+        self.amplitudes_cos = nn.Parameter(torch.randn(num_sinusoids), requires_grad=True)
+
+        # 每个正弦函数和余弦函数的频率初始化为 0.1 到 1.0 的值
+        self.frequencies = nn.Parameter(torch.ones(num_sinusoids), requires_grad=True)
+        # self.frequencies.data.uniform_(0.1, 1.0)
+
+        # 每个正弦函数和余弦函数的相位偏移 (可学习的)
+        self.phases_sin = nn.Parameter(torch.randn(num_sinusoids))
+        self.phases_cos = nn.Parameter(torch.randn(num_sinusoids))
+
+    def forward(self, x):
+        # 扩展 x 的维度使得与 sinusoids 的维度一致
+        x_expanded = x.unsqueeze(-1)  # 形状 (batch_size, input_size, 1)
+
+        # 计算 sinusoids
+        sinusoids = torch.sin(self.omega_0 * self.frequencies * x_expanded + self.phases_sin)
+        # 计算 cosusoids
+        cosusoids = torch.cos(self.omega_0 * self.frequencies * x_expanded + self.phases_cos)
+
+        # 归一化振幅权重
+        amplitudes_sin_normalized = torch.softmax(self.amplitudes_sin, dim=0)
+        amplitudes_cos_normalized = torch.softmax(self.amplitudes_cos, dim=0)
+
+        # 加权求和 sin 和 cos 的输出
+        output_sin = torch.einsum('ijk,k->ij', sinusoids, amplitudes_sin_normalized)
+        output_cos = torch.einsum('ijk,k->ij', cosusoids, amplitudes_cos_normalized)
+
+        # 返回 sin 和 cos 的组合
+        return output_sin + output_cos
+
 
 @LayerRegistry.register('ExpLayer')
 class ExpLayer(nn.Module):
@@ -732,53 +799,30 @@ class ExpLayer(nn.Module):
         self.init_weights()
 
         if self.enable_learnable_omega:
-            # self.l_omega = FreqFactor(out_features, omega=self.omega)
-            tmp = torch.linspace(0, 10, out_features)
-            self.l_omega = nn.Parameter(tmp, requires_grad=True)
-
+            self.l_omega = Parameter(torch.tensor(0.5),requires_grad=True)
 
     def init_weights(self):
-        # nn.init.normal_(self.linear.weight, mean=0, std=0.01)
         with torch.no_grad():
             if self.is_first:
                 self.linear.weight.uniform_(-1 / self.in_features,
                                             1 / self.in_features)
             else:
-                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega,
-                                            np.sqrt(6 / self.in_features) / self.omega)
+                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features),
+                                            np.sqrt(6 / self.in_features))
+
     def forward(self, input):
-        # self.count += 1
         res = None
         x = self.linear(input)
         if self.enable_learnable_omega:
-            res = torch.sin(self.omega * self.l_omega.mul(x))
+            res = torch.exp(1-x)
         else:
-            res = torch.sin(self.omega * x)
-        # 可视化每100轮的输入和输出
-        # if self.count % 10 == 0:
-        #     self.visualize(x, res)
+            res = torch.sin(x)
         return res
-    def visualize(self, x, y):
-        plt.figure(figsize=(12, 5))
 
-        # 输入张量 x 的热图
-        plt.subplot(1, 2, 1)
-        plt.imshow(x.detach().cpu().numpy(), aspect='auto', cmap='viridis')
-        plt.colorbar()
-        plt.title('Input x')
-        plt.xlabel('Features')
-        plt.ylabel('Samples')
-
-        # 输出张量 y 的热图
-        plt.subplot(1, 2, 2)
-        plt.imshow(y.detach().cpu().numpy(), aspect='auto', cmap='viridis')
-        plt.colorbar()
-        plt.title('Output y')
-        plt.xlabel('Features')
-        plt.ylabel('Samples')
-
-        plt.tight_layout()
-        plt.show()
+    def forward_with_intermediate(self, input):
+        # For visualization of activation distributions
+        intermediate = self.omega * self.linear(input)
+        return torch.sin(intermediate), intermediate
 
 
 @LayerRegistry.register('GaussLayer')
@@ -786,8 +830,9 @@ class GaussLayer(nn.Module):
     '''
         Drop in replacement for SineLayer but with Gaussian non linearity
     '''
+
     def __init__(self, in_features, out_features, bias=True,
-                 is_first=False, omega_0=30, scale=10.0):
+                 is_first=False, omega_0=20, scale=30.0):
         '''
             is_first, and omega_0 are not used.
         '''
@@ -795,12 +840,12 @@ class GaussLayer(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.omega_0 = omega_0
-        self.scale = scale
+        self.scale = torch.tensor(scale)
         self.is_first = is_first
         self.linear = nn.Linear(in_features, out_features, bias=bias)
 
     def forward(self, input):
-        return torch.exp(-(self.scale*self.linear(input))**2)
+        return torch.exp(-(self.scale * self.linear(input)) ** 2)
 
 
 @LayerRegistry.register('ComplexGaborLayer')
@@ -820,7 +865,7 @@ class ComplexGaborLayer(nn.Module):
     '''
 
     def __init__(self, in_features, out_features, bias=True,
-                 is_first=False, omega0=10.0, sigma0=40.0,
+                 is_first=False, omega0=20, sigma0=30.0,
                  trainable=False):
         super().__init__()
         self.in_features = in_features
@@ -837,8 +882,8 @@ class ComplexGaborLayer(nn.Module):
             dtype = torch.cfloat
 
         # Set trainable parameters if they are to be simultaneously optimized
-        self.omega_0 = nn.Parameter(self.omega_0*torch.ones(1), trainable)
-        self.scale_0 = nn.Parameter(self.scale_0*torch.ones(1), trainable)
+        self.omega_0 = nn.Parameter(self.omega_0 * torch.ones(1), trainable)
+        self.scale_0 = nn.Parameter(self.scale_0 * torch.ones(1), trainable)
 
         self.linear = nn.Linear(in_features,
                                 out_features,
@@ -850,7 +895,8 @@ class ComplexGaborLayer(nn.Module):
         omega = self.omega_0 * lin
         scale = self.scale_0 * lin
 
-        return torch.exp(1j*omega - scale.abs().square())
+        return torch.exp(1j * omega - scale.abs().square())
+
 
 @LayerRegistry.register('StackLayer')
 class StackLayer(nn.Module):
@@ -860,11 +906,11 @@ class StackLayer(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
 
-        self.layers=nn.ModuleList()
+        self.layers = nn.ModuleList()
         for i in range(out_features):
             layer = nn.Linear(in_features, 1)
             with torch.no_grad():
-                layer.weight.random_(0,1)
+                layer.weight.random_(0, 1)
             self.layers.append(layer)
 
     def forward(self, x):
@@ -878,3 +924,15 @@ class StackLayer(nn.Module):
         res = torch.cat(outputs, dim=1)
 
         return res
+
+
+@LayerRegistry.register('LearnablePositionalEncoding')
+class LearnablePositionalEncoding(nn.Module):
+    def __init__(self, in_features, out_features):
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.embedding = nn.Parameter(torch.randn(in_features, out_features))
+
+    def forward(self, x):
+        return x + self.embedding

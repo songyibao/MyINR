@@ -6,9 +6,8 @@ import skimage
 
 from src.configs.config import MyConfig
 from src.utils.log import logger
-from tests.encode import exp
-from mlflow.data.meta_dataset import MetaDataset
-from mlflow.data.numpy_dataset import NumpyDataset
+
+from src.utils.mlflow_exp import exp
 
 # 加载配置
 config = MyConfig.get_instance(config_name="LSIREN", force_reload=True)
