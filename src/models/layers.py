@@ -112,11 +112,14 @@ class SineLayer(nn.Module):
     def forward(self, input):
         res = None
         x = self.linear(input)
+
         if self.enable_learnable_omega:
             factors = self.l_omega()
             res = torch.sin(factors.mul(x))
         else:
-            res = torch.sin(self.omega * x)
+            x = self.omega * x
+            print(x.max(), x.min())
+            res = torch.sin(x)
         return res
 
     def forward_with_intermediate(self, input):

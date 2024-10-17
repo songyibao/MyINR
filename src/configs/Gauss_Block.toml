@@ -6,7 +6,8 @@ image_path = "data/kodak-dataset/kodim19.png"
 num_steps = 15000
 num_epochs = 1
 
-learning_rate = 0.005
+learning_rate = 0.003
+learning_rate_final_ratio = 0.06
 scheduler_step_size = 1000
 scheduler_gamma = 0.8
 
@@ -26,7 +27,7 @@ log_save_path = "mlruns"
 
 [net]
 use_block_model = true
-num_blocks = 4
+num_blocks = 6
 
 [[net.layers]]
 type = "GaussLayer"
