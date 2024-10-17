@@ -3,8 +3,7 @@ experiment_name = "FINER"
 [train]
 image_path = "data/kodak-dataset/kodim19.png"
 
-
-num_steps = 5000
+num_steps = 15000
 num_epochs = 1
 
 learning_rate = 0.0005
@@ -25,6 +24,7 @@ image_save_path = "res"
 log_save_path = "mlruns"
 
 [net]
+
 [[net.layers]]
 type = "FinerLayer"
 out_features = 256

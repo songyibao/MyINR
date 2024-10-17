@@ -14,13 +14,13 @@ if __name__ == "__main__":
         # "WIRE",
         # "SIREN_Block",
         # "SIREN",
-        # "PE_MLP_Block",
-        # "PE_MLP",
+        "PE_MLP_Block",
+        "PE_MLP",
         # "MLP_Block",
         # "MLP",
         # "LSIREN_Block",
         # "LSIREN",
-        "FINER",
+        # "FINER",
         # "FINER_Block"
     ]
 

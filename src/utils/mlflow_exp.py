@@ -3,8 +3,8 @@ import os.path
 import mlflow
 import numpy as np
 import torch
-from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
-# from mlflow.data.sources import LocalArtifactDatasetSource
+# from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
+from mlflow.data.sources import LocalArtifactDatasetSource
 from mlflow.models import ModelSignature
 from mlflow.types import Schema, TensorSpec
 from torchinfo import summary
@@ -87,7 +87,7 @@ def run_experiments(config_files):
             # 使用的图片, 仅用于区分, 方便在 mlflow ui 中进行分类查看
             dataset = mlflow.data.from_numpy(
                 features=skimage.io.imread(config.train.image_path),
-                source=FileSystemDatasetSource(),
+                source=LocalArtifactDatasetSource(config.train.image_path),
                 name=os.path.basename(config.train.image_path)
             )
             mlflow.log_input(dataset)

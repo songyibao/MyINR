@@ -57,12 +57,12 @@ class PositionalEncoding(nn.Module):
         return torch.cat(out, -1)
 # 位置编码
 def positional_encoding(coords, num_frequencies=10):
-    return PositionalEncoding(num_frequencies)(coords)
-    # encoded = []
-    # for i in range(num_frequencies):
-    #     for fn in [torch.sin, torch.cos]:
-    #         encoded.append(fn(2.0 ** i * coords))
-    # return torch.cat(encoded, dim=-1)
+    # return PositionalEncoding(num_frequencies)(coords)
+    encoded = []
+    for i in range(num_frequencies):
+        for fn in [torch.sin, torch.cos]:
+            encoded.append(fn(2.0 ** i * coords))
+    return torch.cat(encoded, dim=-1)
 
 def periodic_encoding(coords, num_frequencies=10, period=256):
     """

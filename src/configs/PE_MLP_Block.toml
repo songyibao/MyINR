@@ -27,7 +27,7 @@ log_save_path = "mlruns"
 
 [net]
 use_block_model = true
-num_blocks = 4
+num_blocks = 16
 num_frequencies = 10 # 位置编码的频率数量
 
 [[net.layers]]

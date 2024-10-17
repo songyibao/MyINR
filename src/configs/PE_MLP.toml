@@ -42,4 +42,4 @@ out_features = 256
 use_relu = true
 [[net.layers]]
 type = "Linear"
-out_features = 3 # 代码中会根据图像通道数自动处理最后一层的输出
+out_features = 3

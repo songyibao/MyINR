@@ -3,7 +3,7 @@ experiment_name = "WIRE"
 [train]
 image_path = "data/kodak-dataset/kodim19.png"
 
-num_steps = 16000
+num_steps = 15000
 num_epochs = 1
 
 learning_rate = 0.003
