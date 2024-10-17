@@ -168,8 +168,8 @@ class FFM():
         return self.fourier_feature_mapping(x, B)
 def get_coords(h, w):
     y_coords, x_coords = torch.meshgrid(
-        torch.linspace(-2, 2, h, dtype=torch.float32),
-        torch.linspace(-2, 2, w, dtype=torch.float32), indexing='ij'
+        torch.linspace(-1, 1, h, dtype=torch.float32),
+        torch.linspace(-1, 1, w, dtype=torch.float32), indexing='ij'
     )
     res = torch.stack([x_coords, y_coords], dim=-1).reshape(-1, 2)
     return res
