@@ -3,8 +3,6 @@ import os.path
 import mlflow
 import numpy as np
 import torch
-# from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
-from mlflow.data.sources import LocalArtifactDatasetSource
 from mlflow.models import ModelSignature
 from mlflow.types import Schema, TensorSpec
 from torchinfo import summary
@@ -18,7 +16,8 @@ from src.utils.log import logger
 import time
 import skimage.io
 
-def exp(config: MyConfig, device: torch.device=global_device):
+
+def exp(config: MyConfig, device: torch.device = global_device):
     logger.info(f'模型配置:{config.net.model_dump(exclude_none=True)}')
     logger.info("加载和预处理图像")
     dataset = ImageCompressionDataset(config)
@@ -28,12 +27,12 @@ def exp(config: MyConfig, device: torch.device=global_device):
     original_image = original_pixels.view(h, w, c)
     if config.net.use_block_model:
         model_class = ConfigurableBlockModel
-        inr_model = model_class(config.net, in_features=coords.shape[-1], out_features=c,input_size=coords.shape[0])
+        inr_model = model_class(config.net, in_features=coords.shape[-1], out_features=c, input_size=coords.shape[0])
     else:
         model_class = ConfigurableStackedModel if config.net.use_stack_model else ConfigurableINRModel
         inr_model = model_class(config.net, in_features=coords.shape[-1], out_features=c)
 
-    summary(inr_model, input_data=coords.to('cpu'))
+    summary(inr_model, input_data=coords.to('cpu'), depth=10)  # show all layers
 
     # 训练模型
     trained_inr_model = train_inr(model_input=coords, target_image=original_image, model=inr_model, device=device,
@@ -42,19 +41,20 @@ def exp(config: MyConfig, device: torch.device=global_device):
     if not os.path.exists(config.save.base_output_path):
         os.makedirs(config.save.base_output_path)
     trained_inr_model = trained_inr_model.to('cpu')
-    torch.save(trained_inr_model.state_dict(),os.path.join(config.save.net_save_path, config.save.net_name).__str__())
+    torch.save(trained_inr_model.state_dict(), os.path.join(config.save.net_save_path, config.save.net_name).__str__())
     if mlflow.active_run() is not None:
         input_schema = Schema([TensorSpec(np.dtype(np.float32), coords.shape)])
         output_schema = Schema([TensorSpec(np.dtype(np.float32), (coords.shape[0], c))])
         signature = ModelSignature(inputs=input_schema, outputs=output_schema)
-        mlflow.pytorch.log_model(trained_inr_model, "model", signature=signature,pip_requirements=["torch", "-r requirements.txt"])
+        mlflow.pytorch.log_model(trained_inr_model, "model", signature=signature,
+                                 pip_requirements=["torch", "-r requirements.txt"])
     # 保存模型
     logger.info("保存模型")
 
     logger.info("加载模型")
     if config.net.use_block_model:
         model_class = ConfigurableBlockModel
-        model = model_class(config.net, in_features=coords.shape[-1], out_features=c,input_size=coords.shape[0])
+        model = model_class(config.net, in_features=coords.shape[-1], out_features=c, input_size=coords.shape[0])
     else:
         model_class = ConfigurableStackedModel if config.net.use_stack_model else ConfigurableINRModel
         model = model_class(config.net, in_features=coords.shape[-1], out_features=c)
@@ -63,7 +63,9 @@ def exp(config: MyConfig, device: torch.device=global_device):
                    map_location="cpu"))
 
     decompress_and_save(inr_model=model, base_output_path=config.save.base_output_path,
-                        config=config,model_input=coords,original_image=original_image)
+                        config=config, model_input=coords, original_image=original_image)
+
+
 def run_experiments(config_files):
     """
     使用传入的配置文件列表运行实验。
@@ -83,11 +85,10 @@ def run_experiments(config_files):
         # run_name 加上 当前时间戳
         run_name = f"{config_file}_{int(time.time())}"
         # 开始MLflow运行并进行实验
-        with mlflow.start_run(run_name = run_name) as run:
+        with mlflow.start_run(run_name=run_name) as run:
             # 使用的图片, 仅用于区分, 方便在 mlflow ui 中进行分类查看
             dataset = mlflow.data.from_numpy(
                 features=skimage.io.imread(config.train.image_path),
-                source=LocalArtifactDatasetSource(config.train.image_path),
                 name=os.path.basename(config.train.image_path)
             )
             mlflow.log_input(dataset)

@@ -8,20 +8,23 @@ if __name__ == "__main__":
         # "SIREN",
         # "LearnableEmbedding",
         # "DINER",
-        # "Gauss_Block",
-        # "Gauss",
-        # "WIRE_Block",
-        # "WIRE",
-        # "SIREN_Block",
-        # "SIREN",
+        "SIREN_Block",
+        "SIREN",
+        "FINER",
+        "FINER_Block"
+        "Gauss_Block",
+        "Gauss",
+
+        "WIRE_Block",
+        "WIRE",
         "PE_MLP_Block",
         "PE_MLP",
-        # "MLP_Block",
-        # "MLP",
+        "MLP",
+        "MLP_Block",
+
         # "LSIREN_Block",
         # "LSIREN",
-        # "FINER",
-        # "FINER_Block"
+
     ]
 
     # 运行实验

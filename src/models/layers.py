@@ -30,8 +30,19 @@ class LayerRegistry:
 
 
 
+@LayerRegistry.register('LinearRelu')
+class LinearRelu(nn.Module):
+    def __init__(self, in_features: int, out_features: int):
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.net = nn.Sequential(
+            nn.Linear(in_features, out_features),
+            nn.ReLU()
+        )
 
-
+    def forward(self, x):
+        return self.net(x)
 @LayerRegistry.register('Linear')
 class LinearLayer(nn.Module):
     def __init__(self, in_features: int, out_features: int, need_manual_init: bool = False,
@@ -117,9 +128,7 @@ class SineLayer(nn.Module):
             factors = self.l_omega()
             res = torch.sin(factors.mul(x))
         else:
-            x = self.omega * x
-            print(x.max(), x.min())
-            res = torch.sin(x)
+            res = torch.sin(self.omega * x)
         return res
 
     def forward_with_intermediate(self, input):

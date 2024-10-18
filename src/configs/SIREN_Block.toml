@@ -24,7 +24,6 @@ image_save_path = "res"
 log_save_path = "mlruns"
 
 
-# enable_learnable_omega = false SineLayer is the same as the original SIREN
 [net]
 use_block_model = true
 num_blocks = 9

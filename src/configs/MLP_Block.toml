@@ -6,7 +6,8 @@ image_path = "data/kodak-dataset/kodim19.png"
 num_steps = 15000
 num_epochs = 1
 
-learning_rate = 0.0004
+learning_rate = 0.001
+learning_rate_final_ratio = 0.05
 scheduler_step_size = 1000
 scheduler_gamma = 0.8
 
@@ -26,20 +27,20 @@ log_save_path = "mlruns"
 
 [net]
 use_block_model = true
-num_blocks = 4
+num_blocks = 9
 
 [[net.layers]]
-type = "Linear"
+type = "LinearRelu"
 out_features = 256
-use_relu = true
 [[net.layers]]
-type = "Linear"
+type = "LinearRelu"
 out_features = 256
-use_relu = true
 [[net.layers]]
-type = "Linear"
+type = "LinearRelu"
 out_features = 256
-use_relu = true
+[[net.layers]]
+type = "LinearRelu"
+out_features = 256
 [[net.layers]]
 type = "Linear"
 out_features = 3

@@ -27,7 +27,7 @@ log_save_path = "mlruns"
 
 [net]
 use_block_model = true
-num_blocks = 6
+num_blocks = 9
 
 [[net.layers]]
 type = "GaussLayer"
