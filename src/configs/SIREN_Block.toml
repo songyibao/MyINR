@@ -6,7 +6,8 @@ image_path = "data/kodak-dataset/kodim05.png"
 num_steps = 15000
 num_epochs = 1
 
-learning_rate = 0.0002
+learning_rate = 0.0005
+learning_rate_final_ratio = 0.01
 scheduler_step_size =100
 scheduler_gamma = 0.99
 
