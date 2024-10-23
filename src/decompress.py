@@ -8,7 +8,6 @@ import torch
 from torchinfo import summary
 
 from src.utils.data_loader import ImageCompressionDataset
-from src.utils.device import global_device
 
 os_type = platform.system()
 if os_type == 'Windows':

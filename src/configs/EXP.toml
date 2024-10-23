@@ -3,10 +3,11 @@ experiment_name = "PE_MLP_Block"
 [train]
 image_path = "data/kodak-dataset/kodim19.png"
 
-num_steps = 12000
+num_steps = 5000
 num_epochs = 1
 
 learning_rate = 0.005
+learning_rate_final_ratio = 0.1
 scheduler_step_size = 1000
 scheduler_gamma = 0.8
 
@@ -26,8 +27,9 @@ log_save_path = "mlruns"
 
 [net]
 use_block_model = true
-num_blocks = 4
-num_frequencies = 10 # 位置编码的频率数量
+num_blocks = 9
+h_blocks = 3
+w_blocks = 3
 
 [[net.layers]]
 type = "Linear"

@@ -28,6 +28,8 @@ class NetConfig(BaseModel):
     use_stack_model: bool = False
     use_block_model: bool = False
     num_blocks: Optional[int] = None
+    h_blocks: Optional[int] = None
+    w_blocks: Optional[int] = None
     num_frequencies: Optional[int] = None
     degree: Optional[int] = None
     layers: List[LayerConfig]

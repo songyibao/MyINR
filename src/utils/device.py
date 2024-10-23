@@ -38,8 +38,6 @@ def get_best_device():
         return torch.device('cpu')
 
 
-global_device = get_best_device()
-
 
 
 

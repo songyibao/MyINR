@@ -9,7 +9,7 @@ if __name__ == "__main__":
         # "LearnableEmbedding",
         # "DINER",
         "SIREN_Block",
-        "SIREN",
+        # "SIREN",
         # "FINER",
         # "FINER_Block",
         # "Gauss_Block",

@@ -240,3 +240,150 @@ class ImageCompressionDataset(Dataset):
         - 图像像素值（形状为 (h * w, 3)）
         """
         return self.coords, self.pixels, self.h, self.w, self.channels
+def partition_with_info(tensor, splits):
+    """
+    将张量切分并返回每个块的位置信息，支持不能整除的情况
+
+    Args:
+        tensor: 输入张量，形状为[H, W, C]
+        splits: 包含三个整数的元组或列表 (a, b)，表示在H、W、T维度上分别切分的份数
+
+    Returns:
+        tuple: (blocks, positions)
+            - blocks: 切分后的张量列表
+            - positions: 每个块的位置和大小信息列表
+    """
+    H, W, C = tensor.shape
+    a, b = splits
+
+    # 确保分割数不大于维度大小
+    a = min(a, H)
+    b = min(b, W)
+
+    def get_split_points(dim_size, num_splits):
+        base_size = dim_size // num_splits
+        remainder = dim_size % num_splits
+        points = []
+        sizes = []
+        current = 0
+
+        for i in range(num_splits):
+            current_size = base_size + (1 if i < remainder else 0)
+            current += current_size
+            if i < num_splits - 1:
+                points.append(current)
+            sizes.append(current_size)
+
+        return points, sizes
+
+    h_points, h_sizes = get_split_points(H, a)
+    w_points, w_sizes = get_split_points(W, b)
+
+    blocks = []
+    positions = []
+
+    h_start = 0
+    for i, h_end in enumerate(h_points + [H]):
+        w_start = 0
+        for j, w_end in enumerate(w_points + [W]):
+            block = tensor[h_start:h_end, w_start:w_end, :]
+            blocks.append(block)
+
+            positions.append({
+                'pos': [h_start, w_start],
+                'size': [h_end - h_start, w_end - w_start, C]
+            })
+
+            w_start = w_end
+        h_start = h_end
+
+    return blocks, positions
+
+def reconstruct_tensor(blocks, positions, original_shape=None):
+    """
+    将切分的张量块重组为原始张量
+
+    Args:
+        blocks: 张量块列表
+        positions: 每个块的位置和大小信息列表，每个元素为字典，包含'pos'和'size'键
+        original_shape: 可选，原始张量的形状 (H, W, C)。如果不提供，将从positions推断
+
+    Returns:
+        reconstructed: 重组后的张量
+
+    Raises:
+        ValueError: 如果块的数量与位置信息不匹配，或位置信息无效
+    """
+    if len(blocks) != len(positions):
+        raise ValueError("块的数量与位置信息数量不匹配")
+
+    # 如果没有提供原始形状，从positions中推断
+    if original_shape is None:
+        H = max(pos['pos'][0] + pos['size'][0] for pos in positions)
+        W = max(pos['pos'][1] + pos['size'][1] for pos in positions)
+        channels = blocks[0].shape[-1]
+        original_shape = (H, W, channels)
+
+    # 创建输出张量
+    device = blocks[0].device if torch.is_tensor(blocks[0]) else None
+    dtype = blocks[0].dtype if torch.is_tensor(blocks[0]) else None
+
+    if device is not None:
+        reconstructed = torch.zeros(original_shape, dtype=dtype, device=device)
+    else:
+        reconstructed = np.zeros(original_shape, dtype=dtype)
+
+    # 将每个块放回原位置
+    for block, pos_info in zip(blocks, positions):
+        h_start, w_start = pos_info['pos']
+        h_size, w_size,_ = pos_info['size']
+        h_end = h_start + h_size
+        w_end = w_start + w_size
+
+        reconstructed[h_start:h_end, w_start:w_end, :] = block
+
+    return reconstructed
+
+class ImgDatasetBlock(Dataset):
+    def __init__(self, config: MyConfig, mode: str = 'test'):
+        """
+        初始化自定义数据集。
+
+        参数:
+        - image_path (str): 图像文件的路径。
+        """
+        self.config = config
+        # 加载图像
+        # self.img = Image.fromarray(skimage.data.camera()) # 读取示例图像
+        self.img = Image.open(config.train.image_path)
+        self.channels = -1
+        # 判断图像的通道数
+        if self.img.mode == 'RGB':
+            self.channels = 3
+        elif self.img.mode == 'L':
+            self.channels = 1
+        else:
+            self.channels = len(self.img.getbands())
+            if self.channels == 4:  # 如果是RGBA，转换为RGB
+                self.img = self.img.convert('RGB')
+                self.channels = 3
+            else:
+                raise ValueError(f"Unsupported image mode: {self.img.mode}")
+        self.img_tensor = ToTensor()(self.img)  # 转换为 PyTorch 张量，形状为 (3, H, W)
+        self.h, self.w = self.img_tensor.shape[1], self.img_tensor.shape[2]
+        self.h_blocks, self.w_blocks = config.net.h_blocks, config.net.w_blocks
+        self.total_blocks = self.h_blocks * self.w_blocks
+        # 获取图像的像素值，形状为 (h * w, 3)
+        self.pixels = self.img_tensor.permute(1, 2, 0)
+        # 分块
+        self.data_blocks,self.positions = partition_with_info(self.pixels, (self.h_blocks, self.w_blocks))
+        self.coords_blocks = []
+        for i in range(len(self.data_blocks)):
+            self.coords_blocks.append(get_coords(self.data_blocks[i].shape[0], self.data_blocks[i].shape[1]))
+            self.data_blocks[i] = self.data_blocks[i]
+
+    def __len__(self):
+        return self.total_blocks
+
+    def __getitem__(self, index):
+        return self.coords_blocks[index], self.data_blocks[index]
