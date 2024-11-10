@@ -173,73 +173,6 @@ def get_coords(h, w):
     )
     res = torch.stack([x_coords, y_coords], dim=-1).reshape(-1, 2)
     return res
-
-
-class ImageCompressionDataset(Dataset):
-    def __init__(self, config: MyConfig, mode: str = 'test'):
-        """
-        初始化自定义数据集。
-
-        参数:
-        - image_path (str): 图像文件的路径。
-        """
-        self.config = config
-        # 加载图像
-        # self.img = Image.fromarray(skimage.data.camera()) # 读取示例图像
-        self.img = Image.open(config.train.image_path)
-        self.channels = -1
-        # 判断图像的通道数
-        if self.img.mode == 'RGB':
-            self.channels = 3
-        elif self.img.mode == 'L':
-            self.channels = 1
-        else:
-            self.channels = len(self.img.getbands())
-            if self.channels == 4:  # 如果是RGBA，转换为RGB
-                self.img = self.img.convert('RGB')
-                self.channels = 3
-            else:
-                raise ValueError(f"Unsupported image mode: {self.img.mode}")
-        self.img_tensor = ToTensor()(self.img)  # 转换为 PyTorch 张量，形状为 (3, H, W)
-        self.h, self.w = self.img_tensor.shape[1], self.img_tensor.shape[2]
-        self.coords = get_coords(self.h, self.w)  # 转换为 (h * w, 2)
-        # self.coords = torch.linspace(-1, 1, self.h * self.w, dtype=torch.float32).reshape(-1, 1)
-        # self.coords = cartesian_to_polar(self.coords)  # 转换为 (h * w, 4)
-        # 获取图像的像素值，形状为 (h * w, 3)
-        self.pixels = self.img_tensor.permute(1, 2, 0).view(-1, self.channels)
-
-
-
-        if self.config.net.layers[0].type == 'LearnableEmbedding':
-            self.coords = torch.arange(self.h * self.w).long()
-        elif self.config.net.num_frequencies is not None:
-            self.coords = positional_encoding(self.coords, num_frequencies=self.config.net.num_frequencies)
-        elif self.config.net.degree is not None:
-            self.coords = poly_fit(self.coords, degree=self.config.net.degree)
-        elif self.config.net.ffm_out_features is not None:
-            self.coords = FFM(in_features=self.coords.shape[-1], out_features=self.config.net.ffm_out_features).fmap(
-                self.coords)
-        elif self.config.net.use_polar_coords:
-            self.coords = cartesian_to_polar(self.coords)
-
-    def __len__(self):
-        """
-        返回数据集中样本的数量。
-        """
-        return 1
-
-    def __getitem__(self, idx):
-        """
-        根据索引获取样本。
-
-        参数:
-        - idx (int): 索引值
-
-        返回:
-        - 坐标网格（形状为 (h * w, 2)）
-        - 图像像素值（形状为 (h * w, 3)）
-        """
-        return self.coords, self.pixels, self.h, self.w, self.channels
 def partition_with_info(tensor, splits):
     """
     将张量切分并返回每个块的位置信息，支持不能整除的情况
@@ -343,8 +276,77 @@ def reconstruct_tensor(blocks, positions, original_shape=None):
         reconstructed[h_start:h_end, w_start:w_end, :] = block
 
     return reconstructed
+def get_coords_with_config(h,w,config:MyConfig):
+    coords = get_coords(h, w)
+    if config.net.layers[0].type == 'LearnableEmbedding':
+        coords = torch.arange(h * w).long()
+    elif config.net.num_frequencies is not None:
+        coords = positional_encoding(coords, num_frequencies=config.net.num_frequencies)
+    elif config.net.degree is not None:
+        coords = poly_fit(coords, degree=config.net.degree)
+    elif config.net.ffm_out_features is not None:
+        coords = FFM(in_features=coords.shape[-1], out_features=config.net.ffm_out_features).fmap(
+            coords)
+    elif config.net.use_polar_coords:
+        coords = cartesian_to_polar(coords)
+    return coords
+class ImageCompressionDataset(Dataset):
+    def __init__(self, config: MyConfig, mode: str = 'test'):
+        """
+        初始化自定义数据集。
 
-class ImgDatasetBlock(Dataset):
+        参数:
+        - image_path (str): 图像文件的路径。
+        """
+        self.config = config
+        # 加载图像
+        # self.img = Image.fromarray(skimage.data.camera()) # 读取示例图像
+        self.img = Image.open(config.train.image_path)
+        self.channels = -1
+        # 判断图像的通道数
+        if self.img.mode == 'RGB':
+            self.channels = 3
+        elif self.img.mode == 'L':
+            self.channels = 1
+        else:
+            self.channels = len(self.img.getbands())
+            if self.channels == 4:  # 如果是RGBA，转换为RGB
+                self.img = self.img.convert('RGB')
+                self.channels = 3
+            else:
+                raise ValueError(f"Unsupported image mode: {self.img.mode}")
+        self.img_tensor = ToTensor()(self.img)  # 转换为 PyTorch 张量，形状为 (3, H, W)
+        self.img = self.img_tensor.permute(1, 2, 0)
+        self.h, self.w = self.img_tensor.shape[1], self.img_tensor.shape[2]
+        self.coords = get_coords_with_config(self.h, self.w, config)  # 转换为 (h * w, 2)
+
+        # 获取图像的像素值，形状为 (h * w, 3)
+        self.pixels = self.img_tensor.permute(1, 2, 0).view(-1, self.channels)
+
+
+
+
+
+    def __len__(self):
+        """
+        返回数据集中样本的数量。
+        """
+        return 1
+
+    def __getitem__(self, idx):
+        """
+        根据索引获取样本。
+
+        参数:
+        - idx (int): 索引值
+
+        返回:
+        - 坐标网格（形状为 (h * w, 2)）
+        - 图像像素值（形状为 (h * w, 3)）
+        """
+        return self.coords, self.pixels, self.h, self.w, self.channels
+
+class ImgDataset1dBlock(Dataset):
     def __init__(self, config: MyConfig, mode: str = 'test'):
         """
         初始化自定义数据集。
@@ -371,6 +373,65 @@ class ImgDatasetBlock(Dataset):
                 raise ValueError(f"Unsupported image mode: {self.img.mode}")
         self.img_tensor = ToTensor()(self.img)  # 转换为 PyTorch 张量，形状为 (3, H, W)
         self.h, self.w = self.img_tensor.shape[1], self.img_tensor.shape[2]
+        self.num_blocks = config.net.num_blocks
+        self.block_size = (self.h * self.w) // self.num_blocks
+        self.coords = get_coords(self.h, self.w)  # 转换为 (h * w, 2)
+        self.img = self.img_tensor.permute(1, 2, 0)
+        # 获取图像的像素值，形状为 (h * w, 3)
+        self.pixels = self.img.view(-1, self.channels)
+
+        if self.config.net.layers[0].type == 'LearnableEmbedding':
+            self.coords = torch.arange(self.h * self.w).long()
+        elif self.config.net.num_frequencies is not None:
+            self.coords = positional_encoding(self.coords, num_frequencies=self.config.net.num_frequencies)
+        elif self.config.net.degree is not None:
+            self.coords = poly_fit(self.coords, degree=self.config.net.degree)
+        elif self.config.net.ffm_out_features is not None:
+            self.coords = FFM(in_features=self.coords.shape[-1], out_features=self.config.net.ffm_out_features).fmap(
+                self.coords)
+        elif self.config.net.use_polar_coords:
+            self.coords = cartesian_to_polar(self.coords)
+
+
+    def __len__(self):
+        return self.num_blocks
+
+    def __getitem__(self, idx):
+        if idx == self.num_blocks - 1:
+            return self.coords[idx*self.block_size:], self.pixels[idx*self.block_size:]
+        else:
+            return self.coords[idx*self.block_size:(idx+1)*self.block_size], self.pixels[idx*self.block_size:(idx+1)*self.block_size]
+
+
+    
+class ImgDataset2dBlock(Dataset):
+    def __init__(self, config: MyConfig, mode: str = 'test'):
+        """
+        初始化自定义数据集。
+
+        参数:
+        - image_path (str): 图像文件的路径。
+        """
+        self.config = config
+        # 加载图像
+        # self.img = Image.fromarray(skimage.data.camera()) # 读取示例图像
+        self.img = Image.open(config.train.image_path)
+        self.channels = -1
+        # 判断图像的通道数
+        if self.img.mode == 'RGB':
+            self.channels = 3
+        elif self.img.mode == 'L':
+            self.channels = 1
+        else:
+            self.channels = len(self.img.getbands())
+            if self.channels == 4:  # 如果是RGBA，转换为RGB
+                self.img = self.img.convert('RGB')
+                self.channels = 3
+            else:
+                raise ValueError(f"Unsupported image mode: {self.img.mode}")
+        self.img_tensor = ToTensor()(self.img)  # 转换为 PyTorch 张量，形状为 (3, H, W)
+        self.img = self.img_tensor.permute(1, 2, 0)
+        self.h, self.w = self.img_tensor.shape[1], self.img_tensor.shape[2]
         self.h_blocks, self.w_blocks = config.net.h_blocks, config.net.w_blocks
         self.total_blocks = self.h_blocks * self.w_blocks
         # 获取图像的像素值，形状为 (h * w, 3)
@@ -379,8 +440,9 @@ class ImgDatasetBlock(Dataset):
         self.data_blocks,self.positions = partition_with_info(self.pixels, (self.h_blocks, self.w_blocks))
         self.coords_blocks = []
         for i in range(len(self.data_blocks)):
-            self.coords_blocks.append(get_coords(self.data_blocks[i].shape[0], self.data_blocks[i].shape[1]))
-            self.data_blocks[i] = self.data_blocks[i]
+            tmp_shape = self.data_blocks[i].shape
+            self.coords_blocks.append(get_coords_with_config(tmp_shape[0],tmp_shape[1], config))
+            self.data_blocks[i] = self.data_blocks[i].reshape(-1, self.channels)
 
     def __len__(self):
         return self.total_blocks

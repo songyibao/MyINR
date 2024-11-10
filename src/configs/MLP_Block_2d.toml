@@ -26,9 +26,10 @@ log_save_path = "mlruns"
 
 
 [net]
-use_block_model = false
+use_block_model = true
 num_blocks = 9
-
+h_blocks = 3
+w_blocks = 3
 [[net.layers]]
 type = "LinearRelu"
 out_features = 256

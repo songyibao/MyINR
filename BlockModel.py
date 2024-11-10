@@ -80,7 +80,7 @@ def exp_stack(config: MyConfig, device: torch.device=global_device):
     summary(inr_model, input_data=coords.to('cpu'))
 
     # 训练模型
-    trained_inr_model = train_inr(model_input=coords, target_image=original_image, model=inr_model, device=device,
+    trained_inr_model = train_inr(model_input=coords, target=original_image, model=inr_model, device=device,
                                   train_config=config.train)
 
     if not os.path.exists(config.save.base_output_path):
