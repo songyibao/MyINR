@@ -1,4 +1,5 @@
 import math
+from typing import Optional
 
 import mlflow
 import numpy as np
@@ -46,7 +47,7 @@ class LinearRelu(nn.Module):
 @LayerRegistry.register('Linear')
 class LinearLayer(nn.Module):
     def __init__(self, in_features: int, out_features: int, need_manual_init: bool = False,
-                 hidden_omega_0: float = 60., use_cfloat_dtype: bool = False, use_relu: bool = False):
+                 hidden_omega_0: float = 60., use_cfloat_dtype: bool = False, use_relu: bool = False,init_range: Optional[float] = None):
         super().__init__()
         data_type = torch.float if not use_cfloat_dtype else torch.cfloat
         linear = nn.Linear(in_features, out_features, dtype=data_type)
@@ -56,6 +57,10 @@ class LinearLayer(nn.Module):
             with torch.no_grad():
                 linear.weight.uniform_(-np.sqrt(6 / in_features) / hidden_omega_0,
                                        np.sqrt(6 / in_features) / hidden_omega_0)
+        # if init_range is not None:
+            # print('init_range',init_range)
+            # with torch.no_grad():
+            #     linear.weight.uniform_(-init_range,init_range)
         if use_relu:
             self.net = nn.Sequential(
                 linear,
@@ -135,7 +140,48 @@ class SineLayer(nn.Module):
         # For visualization of activation distributions
         intermediate = self.omega * self.linear(input)
         return torch.sin(intermediate), intermediate
+@LayerRegistry.register('ExpLayer')
+class ExpLayer(nn.Module):
 
+    def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=60, enable_learnable_omega=False):
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+
+        self.omega = omega_0
+        self.learnable_omegas = None
+        self.enable_learnable_omega = enable_learnable_omega
+        self.is_first = is_first
+        self.linear = nn.Linear(in_features, out_features, bias=bias)
+        self.init_weights()
+
+        if self.enable_learnable_omega:
+            self.l_omega = Parameter(torch.Tensor(in_features))
+            self.l_omega.data.fill_(1)
+
+    def init_weights(self):
+        with torch.no_grad():
+            if self.is_first:
+                self.linear.weight.uniform_(-1 / self.in_features,
+                                            1 / self.in_features)
+            else:
+                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega,
+                                            np.sqrt(6 / self.in_features) / self.omega)
+
+    def forward(self, input):
+        res = None
+        x = self.linear(input)
+        if self.enable_learnable_omega:
+            factors = self.l_omega
+            res = torch.sin(self.omega*(x+factors))
+        else:
+            res = torch.sin(self.omega * x)
+        return res
+
+    def forward_with_intermediate(self, input):
+        # For visualization of activation distributions
+        intermediate = self.omega * self.linear(input)
+        return torch.sin(intermediate), intermediate
 
 @LayerRegistry.register('FinerLayer')
 class FinerLayer(nn.Module):

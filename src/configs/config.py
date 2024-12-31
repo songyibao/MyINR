@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, ClassVar, Self
+from typing import List, Optional, ClassVar,Self
 
 import imageio.v3
 import toml
@@ -20,7 +20,7 @@ class LayerConfig(BaseModel):
     use_relu: Optional[bool] = None # Linear层参数, 是否使用 ReLU 激活函数
     layer_index: Optional[int] = None # 用于记录层的索引
     omega_0: Optional[float] = None # SineLayer 的 omega_0 参数
-
+    init_range: Optional[float] = None # LinearLayer 的初始化范围
 
 
 
@@ -38,6 +38,7 @@ class NetConfig(BaseModel):
     use_polar_coords: Optional[bool] = None
     use_binary_pixels: Optional[bool] = None
     use_learnable_coords: Optional[bool] = None
+    use_aux_learnable_coords: Optional[bool] = None
 
     @model_validator(mode='after')
     def block_model_params(self) -> Self:
