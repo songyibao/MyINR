@@ -15,7 +15,6 @@ from src.decompress import decompress_and_save
 from src.models.layers import LayerRegistry
 from src.train import train_inr
 from src.utils.data_loader import ImageCompressionDataset
-from src.utils.device import global_device
 from src.utils.log import logger
 
 
@@ -68,7 +67,7 @@ class BlockModel(nn.Module):
         x1 = torch.cat(output, dim=0)
         return x1
 
-def exp_stack(config: MyConfig, device: torch.device=global_device):
+def exp_stack(config: MyConfig, device: torch.device):
     logger.info(f'模型配置:{config.net.model_dump(exclude_none=True)}')
     logger.info("加载和预处理图像")
     dataset = ImageCompressionDataset(config)

@@ -3,7 +3,7 @@ experiment_name = "AUX"
 [train]
 image_path = "data/kodak-dataset/kodim05.png"
 
-num_steps = 1000
+num_steps = 20000
 num_epochs = 1
 
 learning_rate = 0.00005
@@ -25,27 +25,59 @@ log_save_path = "mlruns"
 
 
 # enable_learnable_omega = false SineLayer is the same as the original SIREN
+#[net]
+#use_aux_learnable_coords = true
+#
+#[[net.layers]]
+#type = "Linear"
+#out_features = 256
+#use_relu = false
+#init_range = 1e-4
+#[[net.layers]]
+#type = "SineLayer"
+#out_features = 256
+#enable_learnable_omega = false
+#[[net.layers]]
+#type = "SineLayer"
+#out_features = 256
+#enable_learnable_omega = false
+#[[net.layers]]
+#type = "SineLayer"
+#out_features = 256
+#enable_learnable_omega = false
+#[[net.layers]]
+#type = "Linear"
+#out_features = 3
+#need_manual_init = true
 [net]
-use_aux_learnable_coords = true
+num_frequencies = 10
+#upsample = false
+
+#[[net.layers]]
+#type = "LearnableEmbedding"
+#out_features = 8
 
 [[net.layers]]
 type = "Linear"
-out_features = 256
-use_relu = false
-init_range = 1e-4
+out_features = 128
 [[net.layers]]
-type = "SineLayer"
-out_features = 256
-enable_learnable_omega = false
+type = "ReLU"
+out_features = 128
+
 [[net.layers]]
-type = "SineLayer"
-out_features = 256
-enable_learnable_omega = false
+type = "Linear"
+out_features = 128
 [[net.layers]]
-type = "SineLayer"
-out_features = 256
-enable_learnable_omega = false
+type = "ReLU"
+out_features = 128
+
+[[net.layers]]
+type = "Linear"
+out_features = 128
+[[net.layers]]
+type = "ReLU"
+out_features = 128
+
 [[net.layers]]
 type = "Linear"
 out_features = 3
-need_manual_init = true

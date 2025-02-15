@@ -140,6 +140,47 @@ class SineLayer(nn.Module):
         # For visualization of activation distributions
         intermediate = self.omega * self.linear(input)
         return torch.sin(intermediate), intermediate
+@LayerRegistry.register('AuxLayer')
+class AuxLayer(nn.Module):
+
+    def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=60, enable_learnable_omega=False):
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+
+        self.omega = omega_0
+        self.learnable_omegas = None
+        self.enable_learnable_omega = enable_learnable_omega
+        self.is_first = is_first
+        self.linear = nn.Linear(in_features, out_features, bias=bias)
+        self.init_weights()
+
+        if self.enable_learnable_omega:
+            self.l_omega = FreqFactor(out_features, omega=self.omega)
+
+    def init_weights(self):
+        with torch.no_grad():
+            if self.is_first:
+                self.linear.weight.uniform_(-1 / self.in_features,
+                                            1 / self.in_features)
+            else:
+                self.linear.weight.uniform_(1e-3,1e-3)
+
+    def forward(self, input):
+        res = None
+        x = self.linear(input)
+
+        if self.enable_learnable_omega:
+            factors = self.l_omega()
+            res = torch.sin(factors.mul(x))
+        else:
+            res = torch.sin(self.omega * x)
+        return res
+
+    def forward_with_intermediate(self, input):
+        # For visualization of activation distributions
+        intermediate = self.omega * self.linear(input)
+        return torch.sin(intermediate), intermediate
 @LayerRegistry.register('ExpLayer')
 class ExpLayer(nn.Module):
 
@@ -350,4 +391,15 @@ class ComplexGaborLayer(nn.Module):
 
         return torch.exp(1j * omega - scale.abs().square())
 
-
+@LayerRegistry.register('LearnableEmbedding')
+class LearnableEmbedding(nn.Module):
+    def __init__(self, in_features, out_features):
+        super().__init__()
+        config = MyConfig.get_instance()
+        self.h, self.w = config.train.h, config.train.w
+        num_embeddings = self.h * self.w
+        self.embedding = nn.Embedding(num_embeddings, out_features)
+        self.in_features = in_features
+        self.out_features = out_features
+    def forward(self, x):
+        return self.embedding(x)

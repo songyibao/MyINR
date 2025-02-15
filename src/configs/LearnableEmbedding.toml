@@ -25,10 +25,10 @@ log_save_path = "mlruns"
 
 
 [net]
-num_frequencies = 16
-#[[net.layers]]
-#type = "LearnableEmbedding"
-#out_features = 256
+#num_frequencies = 16
+[[net.layers]]
+type = "LearnableEmbedding"
+out_features = 256
 [[net.layers]]
 type = "Linear"
 out_features = 256

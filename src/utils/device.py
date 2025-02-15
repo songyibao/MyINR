@@ -3,7 +3,8 @@ import torch
 import subprocess
 
 
-def get_best_gpu():
+def get_best_gpu()->torch.device:
+    """获取利用率最低的GPU"""
     def get_gpu_utilization():
         """获取所有GPU的GPU-Util利用率"""
         result = subprocess.run(['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits'],

@@ -319,7 +319,6 @@ class ImageCompressionDataset(Dataset):
         self.img = self.img_tensor.permute(1, 2, 0)
         self.h, self.w = self.img_tensor.shape[1], self.img_tensor.shape[2]
         self.coords = get_coords_with_config(self.h, self.w, config)  # 转换为 (h * w, 2)
-
         # 获取图像的像素值，形状为 (h * w, 3)
         self.pixels = self.img_tensor.permute(1, 2, 0).view(-1, self.channels)
 
@@ -403,7 +402,7 @@ class ImgDataset1dBlock(Dataset):
             return self.coords[idx*self.block_size:(idx+1)*self.block_size], self.pixels[idx*self.block_size:(idx+1)*self.block_size]
 
 
-    
+
 class ImgDataset2dBlock(Dataset):
     def __init__(self, config: MyConfig, mode: str = 'test'):
         """

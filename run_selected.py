@@ -6,8 +6,8 @@ if __name__ == "__main__":
         # "EXP",  # 示例文件名
         # "LSIREN",
         # "SIREN",
-        # "LearnableEmbedding",
-        "DINER",
+        "LearnableEmbedding",
+        # "DINER",
         # "SIREN",
         # "SIREN_Block_1d",
         # "SIREN_Block_2d",

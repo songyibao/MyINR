@@ -241,9 +241,8 @@ def exp_aux(config: MyConfig, device: torch.device):
     logger.info(f"创建坐标网格(包含位置编码)")
     coords, original_pixels, h, w, c = dataset[0]
     logger.info(f'{coords.shape}')
-    model_class = AuxModel
-    inr_model = model_class(config.net, in_features=coords.shape[-1], out_features=c)
-
+    inr_model = AuxModel(in_features=coords.shape[-1], out_features=c,mlp_width=128,mlp_depth=3,coords_shape=coords.shape)
+    # inr_model = AuxModel(net_config=config.net,in_features=coords.shape[-1], out_features=c)
     summary(inr_model, input_data=coords.to('cpu'), depth=10)  # show all layers
 
     # 训练模型
@@ -271,7 +270,7 @@ def exp_aux(config: MyConfig, device: torch.device):
         mlflow.log_param("final_PSNR",eval_res["PSNR"])
     logger.info("转换和保存图像")
     reconstruct_image_mlfow_obj = mlflow.Image(output_h_w_c.cpu().detach().numpy())
-    original_image_mlfow_obj = mlflow.Image(output_h_w_c.cpu().detach().numpy())
+    original_image_mlfow_obj = mlflow.Image(dataset.img.cpu().detach().numpy())
 
     # 创建并保存实验摘要
     exp_summary = {
