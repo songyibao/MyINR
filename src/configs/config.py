@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, ClassVar,Self
+from typing import List, Optional, ClassVar, Self, Literal
 
 import imageio.v3
 import toml
@@ -49,6 +49,7 @@ class NetConfig(BaseModel):
 
 class TrainConfig(BaseModel):
     image_path: str
+    img_mode:Optional[Literal["L","RGB"]] = None
     learning_rate: float
     learning_rate_final_ratio: Optional[float] = 0.1
     num_steps: int

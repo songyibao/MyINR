@@ -303,18 +303,22 @@ class ImageCompressionDataset(Dataset):
         # self.img = Image.fromarray(skimage.data.camera()) # 读取示例图像
         self.img = Image.open(config.train.image_path)
         self.channels = -1
-        # 判断图像的通道数
-        if self.img.mode == 'RGB':
-            self.channels = 3
-        elif self.img.mode == 'L':
+        if config.train.img_mode is not None:
+            self.img = self.img.convert(mode=config.train.img_mode)
             self.channels = 1
         else:
-            self.channels = len(self.img.getbands())
-            if self.channels == 4:  # 如果是RGBA，转换为RGB
-                self.img = self.img.convert('RGB')
+            # 判断图像的通道数
+            if self.img.mode == 'RGB':
                 self.channels = 3
+            elif self.img.mode == 'L':
+                self.channels = 1
             else:
-                raise ValueError(f"Unsupported image mode: {self.img.mode}")
+                self.channels = len(self.img.getbands())
+                if self.channels == 4:  # 如果是RGBA，转换为RGB
+                    self.img = self.img.convert('RGB')
+                    self.channels = 3
+                else:
+                    raise ValueError(f"Unsupported image mode: {self.img.mode}")
         self.img_tensor = ToTensor()(self.img)  # 转换为 PyTorch 张量，形状为 (3, H, W)
         self.img = self.img_tensor.permute(1, 2, 0)
         self.h, self.w = self.img_tensor.shape[1], self.img_tensor.shape[2]

@@ -1,9 +1,9 @@
-experiment_name = "SIREN"
+experiment_name = "SIREN_Block_2d"
 
 [train]
-image_path = "data/kodak-dataset/kodim05.png"
+image_path = "data/kodak-dataset/kodim03.png"
 
-num_steps = 15000
+num_steps = 3000
 num_epochs = 1
 
 learning_rate = 0.0005
@@ -17,7 +17,7 @@ patience = 600
 
 [save]
 net_save_path = "res"
-net_name = "SIREN"
+net_name = "SIREN_Block_2d"
 base_output_path = "res"
 image_save_path = "res"
 
@@ -25,26 +25,29 @@ image_save_path = "res"
 log_save_path = "mlruns"
 
 
-# enable_learnable_omega = false SineLayer is the same as the original SIREN
 [net]
 use_block_model = false
+num_blocks = 9
+h_blocks = 3
+w_blocks = 3
+
 [[net.layers]]
 type = "SineLayer"
-out_features = 256
+out_features = 32
 is_first = true
 enable_learnable_omega = false
 [[net.layers]]
 type = "SineLayer"
-out_features = 256
-enable_learnable_omega = true
+out_features = 32
+enable_learnable_omega = false
 [[net.layers]]
 type = "SineLayer"
-out_features = 256
-enable_learnable_omega = true
+out_features = 32
+enable_learnable_omega = false
 [[net.layers]]
 type = "SineLayer"
-out_features = 256
-enable_learnable_omega = true
+out_features = 32
+enable_learnable_omega = false
 [[net.layers]]
 type = "Linear"
 out_features = 3
